@@ -1,5 +1,5 @@
 /**
- * ATLAS 标准架构数据 Schema（P1.0，P1.2 扩展流程场景）。
+ * ATLAS 标准架构数据 Schema（P1.0，P1.2 流程场景，P1.3 语义与多仓库准备）。
  *
  * 这一层刻意与 Graphify 原始 JSON 解耦：Canvas 场景、详情面板和导入/导出
  * 都只读取这里的结构，不再直接消费 graph.json。
@@ -7,14 +7,16 @@
  * 版本策略：schemaVersion 使用 semver；主版本变化表示不兼容。导入时只接受
  * 同一主版本的数据，避免旧前端静默读取新结构。
  *
- * 1.2.0 增加可选的 flows（流程场景）。流程步骤引用节点位置，但不参与自动
- * 推导；没有 flows 的 1.1 / 1.0 数据仍可导入，解析后为空数组。
+ * 1.2.0 增加可选的 flows（流程场景）。
+ * 1.3.0 增加流程语义（概念步骤 / 静态关联 / 运行时顺序）、模块“为什么需要它”
+ * 的解释、以及多仓库/运行时边界的可选元数据。所有新字段都是可选的，1.0–1.2
+ * 数据导入后会补上保守默认值，不改变源码事实。
  */
 
 export const ATLAS_SCHEMA_ID = 'atlas.architecture';
-export const ATLAS_SCHEMA_VERSION = '1.2.0';
+export const ATLAS_SCHEMA_VERSION = '1.3.0';
 export const ATLAS_SCHEMA_MAJOR = 1;
-export const ATLAS_SCHEMA_MINOR = 2;
+export const ATLAS_SCHEMA_MINOR = 3;
 
 export type AtlasSourceKind = 'demo' | 'graphify';
 export type AtlasSourceOrigin = 'demo' | 'bundled' | 'file-import';
@@ -30,6 +32,20 @@ export type AtlasSystemId = 'crm' | 'nexus' | 'electron';
 export type AtlasModuleId = 'data' | 'voice' | 'animation' | 'canvas';
 export type AtlasNodeKind = 'file' | 'symbol' | 'concept' | 'rationale' | 'external';
 export type AtlasScope = 'product' | 'test' | 'tooling' | 'external' | 'demo';
+/**
+ * 代码实际执行的进程边界。P1.3 只定义可选字段，NEXUS 历史快照尚未逐节点
+ * 标注，因此不能据此推断任何运行时调用。不同已知边界的节点之间的静态
+ * 关系必须标记为 cross-process，避免把浏览器与服务端当成同一运行时。
+ */
+export type AtlasRuntimeBoundary =
+  | 'browser-renderer'
+  | 'node-service'
+  | 'electron-main'
+  | 'electron-renderer'
+  | 'shared'
+  | 'unknown';
+/** 关系的证据范围；缺省按 intra-repository 处理，兼容 1.0–1.2 数据。 */
+export type AtlasRelationScope = 'intra-repository' | 'cross-repository' | 'cross-process';
 export type AtlasSymbolType =
   | 'class'
   | 'function'
@@ -127,6 +143,8 @@ export interface AtlasNode {
   /** Graphify community 原值，只作参考，不参与模块判定。 */
   community: number | null;
   external: boolean;
+  /** P1.3 可选：节点的运行时边界；未标注时为 null，不能猜测。 */
+  runtimeBoundary?: AtlasRuntimeBoundary | null;
   metadata: AtlasNodeMetadata;
   evidence: AtlasEvidenceRef[];
 }
@@ -144,6 +162,15 @@ export interface AtlasRelation {
   /** 自调用/递归；不是无效边。 */
   selfReference: boolean;
   context: string | null;
+  /**
+   * P1.3 可选：关系范围。跨仓库关系必须显式标记，并用接口/协议证据复核；
+   * 不同进程之间的静态关系标记为 cross-process，不能当作同一运行时调用。
+   */
+  scope?: AtlasRelationScope;
+  /** 仅当有真实运行时证据时才为 true；默认 false。 */
+  runtimeVerified?: boolean;
+  /** 运行时证据（协议测试、日志、trace 等）；没有时为空数组。 */
+  runtimeEvidence?: AtlasEvidenceRef[];
   flags: {
     deferred: boolean;
     typeOnly: boolean;
@@ -234,6 +261,16 @@ export interface AtlasModuleComponent {
   review: AtlasReview;
 }
 
+/**
+ * 面向非程序员的模块解释。what 直接使用已审核的 summary / responsibilities；
+ * 这里只补充“为什么需要它”，并单独记录解释的来源与审核方式。
+ * 未收录时保持 null，界面明确显示“未收录”，不由前端自动生成。
+ */
+export interface AtlasModuleExplanation {
+  whyNeeded: string;
+  review: AtlasReview;
+}
+
 export interface AtlasModuleRecord {
   id: AtlasModuleId;
   index: string;
@@ -247,6 +284,8 @@ export interface AtlasModuleRecord {
   summary: string;
   /** 已核实的主要职责，3–5 条。 */
   responsibilities: string[];
+  /** 面向普通用户的“为什么需要它”；未收录时为 null。 */
+  explanation?: AtlasModuleExplanation | null;
   /** 面向用户的模块构成，默认 3–5 个代表对象。 */
   keyComponents: AtlasModuleComponent[];
   /** 尚未覆盖的运行时行为或待核实事项。 */
@@ -321,7 +360,23 @@ export interface AtlasSourceDescriptor {
  * 流程场景是本地附加的“解释材料”，不是自动生成的业务流程图。
  * 每一步都必须指向快照里真实存在的文件与符号；步骤之间的连边由
  * 数据集中的关系实时计算，缺口不会自动补全。
+ *
+ * P1.3 起显式区分：
+ * - semantics=module-collaboration：AI 按已核对职责整理的概念步骤，不是运行时顺序；
+ * - semantics=runtime-verified：确实有运行时证据的调用顺序。
+ * 当前 NEXUS 语音场景属于前者，必须用“模块协作示意”命名，不能称为执行流程。
  */
+export type AtlasFlowSemantics = 'module-collaboration' | 'runtime-verified';
+export type AtlasFlowStepBasis = 'source-responsibility' | 'runtime-evidence';
+
+export interface AtlasFlowRuntimeOrder {
+  /** 仅当有可追溯的运行时证据时才为 true。 */
+  verified: boolean;
+  /** 说明证据范围，或明确写出“尚未验证”。 */
+  note: string;
+  evidence: AtlasEvidenceRef[];
+}
+
 export interface AtlasFlowStep {
   id: string;
   /** 面向普通用户的一步标题。 */
@@ -334,6 +389,8 @@ export interface AtlasFlowStep {
   line: number | null;
   /** 为什么可以这样描述；引用源码职责或注释。 */
   note: string;
+  /** 步骤依据：已核对职责，或运行时证据；默认 source-responsibility。 */
+  basis?: AtlasFlowStepBasis;
 }
 
 export interface AtlasFlowScenario {
@@ -345,6 +402,41 @@ export interface AtlasFlowScenario {
   /** 场景整理者的审核记录；不代表步骤之间的运行时顺序已被验证。 */
   review: AtlasReview;
   disclaimer: string;
+  /** 场景语义；1.2 旧数据迁移时默认为 module-collaboration。 */
+  semantics?: AtlasFlowSemantics;
+  /** 运行时顺序是否已验证；默认 verified=false，evidence=[]。 */
+  runtimeOrder?: AtlasFlowRuntimeOrder;
+}
+
+/**
+ * 多仓库准备（P1.3）。
+ *
+ * 当前数据集仍是一个仓库、一个历史快照；repositories 只是可选的登记表。
+ * 未来每个仓库以自己的 .atlas.json 导入，快照用 snapshotKey 区分；不同
+ * 仓库/快照的节点不合并成同一张“运行时图”。节点 ID 的仓库前缀必须与
+ * repository.id 一致。
+ */
+export interface AtlasRepositorySnapshotRef {
+  snapshotId: string;
+  /** 仓库 + 提交 + 生成时间的稳定标识，用于同时存在多个历史快照时区分。 */
+  snapshotKey: string;
+  commit: string;
+  commitShort: string;
+  /** 仓库扫描时间；与图谱生成时间、导入时间分开记录。 */
+  scannedAt: string | null;
+  generatedAt: string | null;
+  importedAt: string;
+  graphifyVersion: string;
+  nodeCount: number;
+  relationCount: number;
+  history: true;
+}
+
+export interface AtlasRepositoryRecord {
+  id: string;
+  name: string;
+  system: AtlasSystemId;
+  snapshots: AtlasRepositorySnapshotRef[];
 }
 
 export interface AtlasDataset {
@@ -363,6 +455,8 @@ export interface AtlasDataset {
   diagnostics: AtlasDiagnostics;
   /** 可选流程场景；旧版数据导入后为空数组，不会自动生成。 */
   flows: AtlasFlowScenario[];
+  /** 可选仓库登记表；旧版数据会从 snapshot 推导一个仓库记录。 */
+  repositories?: AtlasRepositoryRecord[];
 }
 
 export type AtlasErrorCode =
@@ -386,6 +480,8 @@ export type AtlasErrorCode =
   | 'ATLAS_DATASET_PATH_LEAK'
   | 'ATLAS_DATASET_SNAPSHOT_INVALID'
   | 'ATLAS_DATASET_FLOW_INVALID'
+  | 'ATLAS_DATASET_REPOSITORY_INVALID'
+  | 'ATLAS_DATASET_CROSS_REPO_INVALID'
   | 'SNAPSHOT_LOAD_FAILED'
   | 'IMPORT_FILE_MISSING'
   | 'IMPORT_FILE_UNRECOGNIZED';

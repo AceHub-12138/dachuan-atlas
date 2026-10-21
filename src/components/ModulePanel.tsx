@@ -1,11 +1,13 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { ModuleId } from '../data/atlas';
 import { REVIEW_LABELS, reviewLabel, type AtlasNode, type AtlasReview } from '../architecture/schema';
 import { moduleReviewCounts } from '../architecture/query';
 import { edgeEvidenceSummary, moduleProjection } from '../architecture/projection';
+import { explainModule } from '../architecture/plain';
 import type { ArchitectureDataState } from '../hooks/useArchitectureData';
 import { ArrowLeft, ArrowRight, CloseIcon } from './Icons';
+import { PlainExplanationCard } from './PlainExplanationCard';
 import { RelationExplorer } from './RelationExplorer';
 
 interface ModulePanelProps {
@@ -67,6 +69,10 @@ export function ModulePanel({
     (note, index, list) => note && list.indexOf(note) === index,
   );
   const compositionReview = module?.reviewRecord;
+  const explanation = useMemo(
+    () => explainModule(data.dataset, moduleId),
+    [data.dataset, moduleId],
+  );
   const evidenceRefs = module
     ? [
         ...new Map(
@@ -111,6 +117,8 @@ export function ModulePanel({
           <h2 id="module-panel-title">{module.name}</h2>
           <p className="voice-panel__latin">{module.latin}</p>
 
+          {explanation ? <PlainExplanationCard explanation={explanation} /> : null}
+
           {moduleId === 'voice' ? (
             <div className="voice-wave" aria-hidden="true">
               {Array.from({ length: 36 }).map((_, index) => (
@@ -133,18 +141,10 @@ export function ModulePanel({
           <section className="panel-section panel-section--purpose">
             <div className="panel-section__head">
               <span>01</span>
-              <h3>它是什么</h3>
-            </div>
-            <p className="voice-purpose">{module.summary}</p>
-            <p className="module-panel__description">{module.description}</p>
-          </section>
-
-          <section className="panel-section">
-            <div className="panel-section__head">
-              <span>02</span>
               <h3>它做什么</h3>
               <em>{isReal ? '源码职责' : '演示说明'}</em>
             </div>
+            <p className="module-panel__description">{module.description}</p>
             <ul className="module-does">
               {module.responsibilities.map((item) => (
                 <li key={item}>{item}</li>
@@ -154,7 +154,7 @@ export function ModulePanel({
 
           <section className="panel-section">
             <div className="panel-section__head">
-              <span>03</span>
+              <span>02</span>
               <h3>组成与关系</h3>
               <em>分开呈现</em>
             </div>
@@ -254,8 +254,8 @@ export function ModulePanel({
                 onClick={() => onOpenFlow(moduleId)}
               >
                 <span>
-                  <strong>按流程理解</strong>
-                  <em>从已核对职责整理，明确标出图谱缺口</em>
+                  <strong>模块协作示意</strong>
+                  <em>AI 按已核对职责整理的概念步骤，不是运行时顺序</em>
                 </span>
                 <ArrowRight />
               </button>
@@ -264,7 +264,7 @@ export function ModulePanel({
 
           <section className="panel-section">
             <div className="panel-section__head">
-              <span>04</span>
+              <span>03</span>
               <h3>包含哪些部分</h3>
               <em>{components.length ? `${components.length} 个代表对象` : '待导入'}</em>
             </div>
@@ -284,8 +284,8 @@ export function ModulePanel({
                           <span>{component.responsibility}</span>
                         </span>
                         <span className="module-component__meta">
-                          <code>{component.file}#L{component.line ?? '?'}</code>
                           <em>{reviewLabel(component.review)}</em>
+                          <span className="module-component__more">查看关系</span>
                         </span>
                       </button>
                     </li>
@@ -301,7 +301,7 @@ export function ModulePanel({
 
           <section className="panel-section">
             <div className="panel-section__head">
-              <span>05</span>
+              <span>04</span>
               <h3>证据在哪里</h3>
               <em>{snapshot ? snapshot.commitShort : '演示'}</em>
             </div>
@@ -350,7 +350,7 @@ export function ModulePanel({
 
           <section className="panel-section">
             <div className="panel-section__head">
-              <span>06</span>
+              <span>05</span>
               <h3>还缺少什么</h3>
               <em>未核实</em>
             </div>

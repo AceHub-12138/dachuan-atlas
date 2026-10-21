@@ -4,6 +4,7 @@ import type { ModuleId, SystemId } from './data/atlas';
 import { AboutDialog } from './components/AboutDialog';
 import { ArchitecturePanel } from './components/ArchitecturePanel';
 import { BottomRail } from './components/BottomRail';
+import { ComprehensionDialog } from './components/ComprehensionDialog';
 import { FlowDialog } from './components/FlowDialog';
 import { GraphWorkspace } from './components/GraphWorkspace';
 import { HomeIntro } from './components/HomeIntro';
@@ -33,6 +34,7 @@ export default function App() {
   const [dataOpen, setDataOpen] = useState(false);
   const [graphOpen, setGraphOpen] = useState<GraphOpenRequest | null>(null);
   const [flowOpen, setFlowOpen] = useState(false);
+  const [quizOpen, setQuizOpen] = useState(false);
   const [showGraphLinks, setShowGraphLinks] = useState(true);
   const [notice, setNotice] = useState<string | null>(null);
   const noticeTimer = useRef<number | null>(null);
@@ -178,7 +180,7 @@ export default function App() {
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return;
-      if (dataOpen || graphOpen || flowOpen) return;
+      if (dataOpen || graphOpen || flowOpen || quizOpen) return;
       if (aboutOpen) {
         setAboutOpen(false);
         return;
@@ -193,7 +195,7 @@ export default function App() {
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [aboutOpen, dataOpen, flowOpen, goHome, graphOpen, level, selectedSystem]);
+  }, [aboutOpen, dataOpen, flowOpen, goHome, graphOpen, level, quizOpen, selectedSystem]);
 
   const sceneView = level === 'universe' ? 'universe' : 'nexus';
   const activeModule = level === 'module' ? selectedModule : null;
@@ -285,6 +287,7 @@ export default function App() {
             onOpenModule={openModule}
             onOpenGraph={() => openGraph()}
             onOpenFlow={() => openFlow()}
+            onOpenQuiz={() => setQuizOpen(true)}
             onOpenData={() => setDataOpen(true)}
             onToggleGraphLinks={() => setShowGraphLinks((value) => !value)}
           />
@@ -325,6 +328,10 @@ export default function App() {
               : null
           }
           onClose={() => setAboutOpen(false)}
+          onOpenQuiz={() => {
+            setAboutOpen(false);
+            setQuizOpen(true);
+          }}
         />
       ) : null}
 
@@ -352,6 +359,8 @@ export default function App() {
           }}
         />
       ) : null}
+
+      {quizOpen ? <ComprehensionDialog onClose={() => setQuizOpen(false)} /> : null}
     </div>
   );
 }

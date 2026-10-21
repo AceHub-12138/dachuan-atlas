@@ -1,11 +1,12 @@
-# ATLAS 标准架构数据 Schema · v1.2.0
+# ATLAS 标准架构数据 Schema · v1.3.0
 
 - **Schema ID**：`atlas.architecture`
-- **版本**：`1.2.0`（兼容 1.0.x / 1.1.x 导入）
+- **版本**：`1.3.0`（兼容 1.0.x / 1.1.x / 1.2.x 导入）
 - **实现**：`src/architecture/schema.ts`
 - **校验 / 导入导出**：`src/architecture/dataset.ts`
+- **多仓库辅助**：`src/architecture/multi-repo.ts`
 - **Graphify 适配器**：`src/architecture/graphify-adapter.ts`
-- **适用范围**：P1.0 NEXUS 历史快照；CRM / Electron 尚未接入
+- **适用范围**：NEXUS 单仓库历史快照；CRM / Electron 只完成 Schema 兼容层与设计，尚未扫描或导入
 
 ---
 
@@ -29,7 +30,7 @@ D 层本轮没有改动。Canvas 不读取 B 层节点，也不会把 1,390 个�
 ```ts
 interface AtlasDataset {
   schemaId: 'atlas.architecture';
-  schemaVersion: '1.2.0';
+  schemaVersion: '1.3.0';
   generatedAt: string;              // 数据集构建时间，不是源码提交时间
   source: AtlasSourceDescriptor;    // 演示 / Graphify；是否模拟；来源形式
   snapshot: AtlasSnapshot | null;   // 演示数据必须为 null
@@ -38,7 +39,8 @@ interface AtlasDataset {
   nodes: AtlasNode[];
   relations: AtlasRelation[];
   diagnostics: AtlasDiagnostics;
-  flows: AtlasFlowScenario[];       // 可选流程场景；旧版导入后为空数组
+  flows: AtlasFlowScenario[];       // 可选模块协作场景；旧版导入后为空数组
+  repositories?: AtlasRepositoryRecord[]; // P1.3 可选仓库登记表
 }
 ```
 
@@ -78,6 +80,8 @@ interface AtlasNode {
   review: AtlasReview;              // 名称/职责注释的审核状态
   community: number | null;         // Graphify 原值，只作参考
   external: boolean;
+  runtimeBoundary?: 'browser-renderer' | 'node-service' | 'electron-main'
+    | 'electron-renderer' | 'shared' | 'unknown' | null; // P1.3 可选进程边界
   metadata: { unresolvedCalls?: AtlasUnresolvedCall[] };
   evidence: AtlasEvidenceRef[];
 }
@@ -117,6 +121,9 @@ interface AtlasRelation {
   evidence: AtlasEvidenceRef | null;  // 调用/导入发生的位置
   selfReference: boolean;     // 递归/自调用，不是无效边
   context: string | null;
+  scope?: 'intra-repository' | 'cross-repository' | 'cross-process'; // P1.3
+  runtimeVerified?: boolean;  // 只有运行时证据时才为 true
+  runtimeEvidence?: AtlasEvidenceRef[]; // trace / 日志 / 协议测试等
   flags: { deferred: boolean; typeOnly: boolean };
   sourceIndex: number;        // 原始 links 下标
 }
@@ -199,12 +206,22 @@ interface AtlasModuleComponent {
 ```
 
 ```ts
+interface AtlasModuleExplanation {
+  whyNeeded: string;          // 面向普通用户的“为什么需要它”
+  review: AtlasReview;        // 解释来源，不替代模块组成审核
+}
+
 interface AtlasModuleRecord {
   id: 'data' | 'voice' | 'animation' | 'canvas';
   name: string;               // 中文
   review: 'verified' | 'partially_verified' | 'unverified';
   rule: string;               // 人工可读的归类规则
   description: string;
+  summary: string;
+  responsibilities: string[];
+  explanation?: AtlasModuleExplanation | null; // 未收录时明确为 null
+  keyComponents: AtlasModuleComponent[];
+  gaps: string[];
   notes: string[];
   evidence: AtlasModuleEvidence[];
   stats: AtlasModuleStats;
@@ -219,9 +236,12 @@ interface AtlasModuleRecord {
 
 ---
 
-## 8. 流程场景（P1.2）
+## 8. 模块协作场景（P1.2 引入，P1.3 修正语义）
 
 ```ts
+type AtlasFlowSemantics = 'module-collaboration' | 'runtime-verified';
+type AtlasFlowStepBasis = 'source-responsibility' | 'runtime-evidence';
+
 interface AtlasFlowStep {
   id: string;
   title: string;
@@ -231,6 +251,13 @@ interface AtlasFlowStep {
   symbol: string;
   line: number | null;
   note: string;       // 为什么可以这样描述
+  basis?: AtlasFlowStepBasis; // 默认 source-responsibility
+}
+
+interface AtlasFlowRuntimeOrder {
+  verified: boolean;  // 只有真实运行时证据时才为 true
+  note: string;       // 说明证据范围，或明确写“尚未验证”
+  evidence: AtlasEvidenceRef[];
 }
 
 interface AtlasFlowScenario {
@@ -241,16 +268,57 @@ interface AtlasFlowScenario {
   steps: AtlasFlowStep[];  // 2–12 步
   review: AtlasReview;     // 场景整理来源；不代表运行时顺序已验证
   disclaimer: string;
+  semantics?: AtlasFlowSemantics;       // 1.3 默认 module-collaboration
+  runtimeOrder?: AtlasFlowRuntimeOrder; // 1.3 默认 verified=false
+}
+```
+
+语义约束：
+
+1. `semantics = 'module-collaboration'` 表示 **AI 根据模块职责整理的概念性协作步骤**，步骤顺序不是运行时调用顺序；此时 `runtimeOrder.verified` 必须为 `false`。
+2. `semantics = 'runtime-verified'` 表示声称有运行时顺序证据；必须同时满足 `runtimeOrder.verified = true`、`runtimeOrder.evidence` 非空，且每个步骤 `basis = 'runtime-evidence'`。当前 NEXUS 数据不满足，因此没有这种场景。
+3. 每个步骤必须能在当前快照中找到 `sourceFile + symbol + moduleId` 对应的节点；找不到时导入直接拒绝（`ATLAS_DATASET_FLOW_INVALID`）。
+4. 步骤之间的连边由数据集关系实时计算；没有边时界面必须显示 **缺少证据 / 缺口**，不得补线。
+5. 场景审核记录通常为 `ai-source-review`；它不是独立人工审核。
+6. 本地附加场景使用 `npm run attach:flows -- --dataset ... --flows ...`；工具只读取已有快照，不扫描源码工作区。
+7. 界面名称固定为 **「模块协作示意」**；禁止把它称为“执行流程”或“运行时调用链”。当前语音场景：7 个概念步骤、4 个有静态图边的衔接、2 个缺口、0 个已验证运行时顺序。
+
+---
+
+## 8.5 仓库与快照登记（P1.3）
+
+```ts
+interface AtlasRepositorySnapshotRef {
+  snapshotId: string;
+  snapshotKey: string;   // 推荐 <repository>@<commitShort>@<generatedAt>
+  commit: string;
+  commitShort: string;
+  scannedAt: string | null; // 真实扫描时间；未记录必须为 null
+  generatedAt: string | null;
+  importedAt: string;
+  graphifyVersion: string;
+  nodeCount: number;
+  relationCount: number;
+  history: true;
+}
+
+interface AtlasRepositoryRecord {
+  id: string;            // 命名空间根，例如 nexus / crm / electron
+  name: string;
+  system: 'crm' | 'nexus' | 'electron';
+  snapshots: AtlasRepositorySnapshotRef[];
 }
 ```
 
 约束：
 
-1. 每个步骤必须能在当前快照中找到 `sourceFile + symbol + moduleId` 对应的节点；找不到时导入直接拒绝（`ATLAS_DATASET_FLOW_INVALID`）。
-2. 流程场景只存在于本地附加数据中，不由前端自动生成，也不进入默认构建。
-3. 步骤之间的连边由数据集关系实时计算；没有边时界面必须显示“图谱缺口”，不得补线。
-4. 场景审核记录通常为 `ai-source-review`；它不是独立人工审核，也不证明步骤顺序是运行时调用顺序。
-5. 本地附加流程使用 `npm run attach:flows -- --dataset ... --flows ...`；工具只读取已有快照，不扫描源码工作区。
+1. `repositories` 非空时，节点 `repository` 必须出现在登记表中。
+2. 节点 `id` 的仓库前缀必须等于 `node.repository`；形式为 `<repository>:<path>#<symbol>`，未来多快照共存时可用 `<repository>@<snapshotKey>:<path>#<symbol>`。
+3. Graphify 数据必须至少登记一个仓库；1.0–1.2 数据导入时由 `snapshot` 推导单仓库记录。
+4. `scannedAt` 没有记录时保持 `null`，界面显示“未记录”；不得用 `generatedAt` 或 `importedAt` 冒充。
+5. 不同仓库 / 不同快照不合并节点；多仓库通过 `src/architecture/multi-repo.ts` 的索引汇总。
+6. 跨仓库关系必须 `scope = 'cross-repository'`，并提供接口/协议证据、AI 或人工复核；不同运行时之间必须 `cross-process`，`runtimeVerified` 必须有 `runtimeEvidence`。
+7. 详细设计见 [P1.3-MULTI-REPO.md](../P1.3-MULTI-REPO.md)。
 
 ---
 
@@ -285,7 +353,7 @@ interface AtlasDiagnostics {
 
 ### 10.1 ATLAS 标准数据导入
 
-`parseAtlasDataset(raw)` 接受 `1.0.x`、`1.1.x` 与 `1.2.x`。1.0 数据会自动迁移审核字段与模块详情字段，并写入 `schemaMigratedFrom`；源码事实（提交、节点、关系、证据）不改写。它是严格校验：
+`parseAtlasDataset(raw)` 接受 `1.0.x`、`1.1.x`、`1.2.x` 与 `1.3.x`。1.0 数据会自动迁移审核字段与模块详情字段；1.1 / 1.2 数据会补上流程语义、模块解释与仓库登记的保守默认值，并写入 `schemaMigratedFrom`。源码事实（提交、节点、关系、证据）不改写。它是严格校验：
 
 - `schemaId` 错误 → `ATLAS_SCHEMA_ID_UNSUPPORTED`
 - 主版本不兼容 → `ATLAS_SCHEMA_VERSION_UNSUPPORTED`
@@ -293,7 +361,9 @@ interface AtlasDiagnostics {
 - 悬空关系 → `ATLAS_DATASET_DANGLING_RELATION`
 - 绝对路径 / `..` → `ATLAS_DATASET_PATH_LEAK`
 - 快照字段缺失或 `history !== true` → `ATLAS_DATASET_SNAPSHOT_INVALID`
-- 流程步骤引用不存在节点 → `ATLAS_DATASET_FLOW_INVALID`
+- 流程步骤引用不存在节点或运行时声明无证据 → `ATLAS_DATASET_FLOW_INVALID`
+- 仓库登记缺失、快照重复或节点前缀不一致 → `ATLAS_DATASET_REPOSITORY_INVALID`
+- 跨仓库关系缺证据或运行时边界矛盾 → `ATLAS_DATASET_CROSS_REPO_INVALID`
 - JSON 解析失败 → `ATLAS_INVALID_JSON`
 
 标准数据是 ATLAS 自己的格式；出现上述问题说明文件损坏或被手工改坏，应当拒绝，而不是猜测修复。
@@ -329,3 +399,4 @@ interface AtlasDiagnostics {
 - 浏览器错误只显示文件名，不显示用户本机完整路径。
 - CLI 错误只显示相对路径或 `path.basename`。
 - 数据包移动到另一台电脑后，不依赖原 Mac 的目录结构；把 ATLAS 数据集放到 `local-data/` 或用文件导入即可；不要放回 `public/`。
+- Windows 迁移的完整命令、SHA-256 校验、bundle 恢复与数据导入步骤见 [P1.3-MAC-TO-WINDOWS.md](../P1.3-MAC-TO-WINDOWS.md)。

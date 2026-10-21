@@ -8,7 +8,7 @@ interface BottomRailProps {
 const instructions: Record<AppLevel, string> = {
   universe: '悬停探索星系，点击 NEXUS 进入模块层',
   nexus: '点击模块查看详情；左下角投影摘要可打开真实关系',
-  module: '查看关系证据；按流程理解会标出图谱缺口',
+  module: '查看关系证据；模块协作示意会标出证据缺口',
 };
 
 const stageIndex: Record<AppLevel, number> = {

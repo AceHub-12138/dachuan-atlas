@@ -59,7 +59,8 @@ describe('按流程理解', () => {
     expect(scenario.review.status).toBe('verified');
     expect(scenario.review.actor).toContain('DeepSeek');
     expect(scenario.review.evidence).toHaveLength(7);
-    expect(scenario.disclaimer).toContain('不代表已验证的运行时调用顺序');
+    expect(scenario.disclaimer).toContain('模块协作示意');
+    expect(scenario.disclaimer).toContain('没有任何步骤衔接被验证为运行时顺序');
   });
 
   it('演示模式没有本地流程，不自动生成业务流程', () => {

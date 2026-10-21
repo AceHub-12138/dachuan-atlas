@@ -5,9 +5,10 @@ interface AboutDialogProps {
   dataSource: 'demo' | 'nexus-snapshot';
   snapshot: { commitShort: string; generatedAt: string | null } | null;
   onClose: () => void;
+  onOpenQuiz: () => void;
 }
 
-export function AboutDialog({ dataSource, snapshot, onClose }: AboutDialogProps) {
+export function AboutDialog({ dataSource, snapshot, onClose, onOpenQuiz }: AboutDialogProps) {
   const closeRef = useRef<HTMLButtonElement>(null);
   const previousFocus = useRef<HTMLElement | null>(null);
 
@@ -37,7 +38,7 @@ export function AboutDialog({ dataSource, snapshot, onClose }: AboutDialogProps)
         </header>
         <div className="about-dialog__body">
           <p>
-            DACHUAN ATLAS 是大川软件体系的<strong> P0.1 视觉原型 + P1.2 真实架构投影</strong>，用于评估星图视觉语言，并验证 Graphify 架构数据能否被可靠读取。
+            DACHUAN ATLAS 是大川软件体系的<strong> P0.1 视觉原型 + P1.3 可信架构解释</strong>，用于评估星图视觉语言，并验证 Graphify 架构数据能否被可靠读取。
           </p>
           <p className="about-dialog__warning">
             模块位置、中枢连接、星点、轨道与流星仍是演示构图。只有本地导入快照后，画布才会绘制有证据的跨模块连线；连线是静态关系，不代表运行时调用顺序。
@@ -45,7 +46,7 @@ export function AboutDialog({ dataSource, snapshot, onClose }: AboutDialogProps)
           <dl>
             <div>
               <dt>如何探索</dt>
-              <dd>悬停查看星系名称；点击 NEXUS 进入模块层；四个模块都可打开详情，并进入关系探索、架构投影与按流程理解。</dd>
+              <dd>悬停查看星系名称；点击 NEXUS 进入模块层；四个模块都可打开详情，并进入关系探索、架构投影与模块协作示意。</dd>
             </div>
             <div>
               <dt>数据来源</dt>
@@ -61,7 +62,7 @@ export function AboutDialog({ dataSource, snapshot, onClose }: AboutDialogProps)
             </div>
             <div>
               <dt>本轮范围</dt>
-              <dd>P1.2 只读取本地导入的 NEXUS 历史快照；跨模块连线按直接提取 / 推断 / AI 复核 / 待核实区分线型。13 条关系为 AI 源码复核，0 条独立人工审核。不连接 Graphify Cloud，不上传内部代码。</dd>
+              <dd>P1.3 只读取本地导入的 NEXUS 历史快照；跨模块连线按直接提取 / 推断 / AI 复核 / 待核实区分线型。13 条关系为 AI 源码复核，0 条独立人工审核。模块协作示意是概念步骤，不是已验证的运行时顺序。不连接 Graphify Cloud，不上传内部代码。</dd>
             </div>
             <div>
               <dt>装饰效果</dt>
@@ -70,8 +71,13 @@ export function AboutDialog({ dataSource, snapshot, onClose }: AboutDialogProps)
           </dl>
         </div>
         <footer className="about-dialog__footer">
-          <span>DACHUAN ATLAS · v0.4.0 · P1.2</span>
-          <span>Chrome / Edge · 桌面端</span>
+          <span>DACHUAN ATLAS · v0.5.0 · P1.3</span>
+          <span className="about-dialog__footer-actions">
+            <button type="button" className="secondary-action" onClick={onOpenQuiz}>
+              <span>做一次 5 题理解检查</span>
+            </button>
+            <span>Chrome / Edge · 桌面端</span>
+          </span>
         </footer>
       </section>
     </div>

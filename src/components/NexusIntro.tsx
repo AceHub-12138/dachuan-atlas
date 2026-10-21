@@ -18,6 +18,7 @@ interface NexusIntroProps {
   onOpenModule: (id: ModuleId) => void;
   onOpenGraph: () => void;
   onOpenFlow: () => void;
+  onOpenQuiz: () => void;
   onOpenData: () => void;
   onToggleGraphLinks: () => void;
 }
@@ -33,6 +34,7 @@ export function NexusIntro({
   onOpenModule,
   onOpenGraph,
   onOpenFlow,
+  onOpenQuiz,
   onOpenData,
   onToggleGraphLinks,
 }: NexusIntroProps) {
@@ -150,12 +152,18 @@ export function NexusIntro({
               <ArrowRight />
             </button>
             <button type="button" className="graph-summary__secondary" onClick={onOpenFlow} disabled={!hasFlow}>
-              按流程理解
+              模块协作示意
               {hasFlow ? <ArrowRight /> : null}
+            </button>
+            <button type="button" className="graph-summary__quiz" onClick={onOpenQuiz}>
+              理解检查 · 5 题
             </button>
           </div>
           <p className="graph-summary__note">
             仅绘制有证据的跨模块关系；Canvas 无主归属，不画模块连线。橙色中枢连接、星点、轨道与流星为装饰，不参与统计。
+          </p>
+          <p className="graph-summary__note graph-summary__note--concept">
+            模块协作示意只整理已核对的职责与静态关系，不是运行时调用顺序；没有证据的衔接会明确标为缺口。
           </p>
         </section>
       ) : (
@@ -168,7 +176,7 @@ export function NexusIntro({
             <span className="graph-summary__status">模拟</span>
           </div>
           <p className="graph-summary__note">
-            保留 P0.1 原有星系结构。导入本地 ATLAS 快照后，才会出现可追溯的跨模块连线和按流程理解。
+            保留 P0.1 原有星系结构。导入本地 ATLAS 快照后，才会出现可追溯的跨模块连线和模块协作示意。
           </p>
           <button type="button" className="graph-summary__secondary" onClick={onOpenData}>
             导入本地快照

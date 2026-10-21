@@ -22,6 +22,8 @@ const FORBIDDEN = [
   'src/lib/voice/',
   'src/components/overlay/',
   'services/voice-orchestrator/',
+  'nexus@2584284',
+  'voice-request-to-overlay',
 ];
 
 function walk(directory: string): string[] {

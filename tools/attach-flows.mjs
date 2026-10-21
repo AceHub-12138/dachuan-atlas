@@ -26,6 +26,8 @@ const REVIEW_METHODS = new Set([
   'human-review',
   'unverified',
 ]);
+const FLOW_SEMANTICS = new Set(['module-collaboration', 'runtime-verified']);
+const FLOW_BASIS = new Set(['source-responsibility', 'runtime-evidence']);
 
 function fail(message) {
   throw new Error(message);
@@ -97,6 +99,27 @@ function validateFlows(payload, nodes) {
     requireString(flow.disclaimer, `flows[${flowIndex}].disclaimer`);
     if (!MODULE_IDS.has(flow.entryModuleId)) fail(`flows[${flowIndex}].entryModuleId 非法。`);
     validateReview(flow.review, `flows[${flowIndex}].review`);
+    const semantics = flow.semantics ?? 'module-collaboration';
+    if (!FLOW_SEMANTICS.has(semantics)) fail(`flows[${flowIndex}].semantics 非法。`);
+    const runtimeOrder =
+      flow.runtimeOrder ?? {
+        verified: false,
+        note: '当前场景没有运行时顺序证据；按模块协作示意展示。',
+        evidence: [],
+      };
+    if (!isRecord(runtimeOrder) || typeof runtimeOrder.verified !== 'boolean') {
+      fail(`flows[${flowIndex}].runtimeOrder.verified 必须是布尔值。`);
+    }
+    requireString(runtimeOrder.note, `flows[${flowIndex}].runtimeOrder.note`);
+    if (!Array.isArray(runtimeOrder.evidence)) {
+      fail(`flows[${flowIndex}].runtimeOrder.evidence 必须是数组。`);
+    }
+    if (semantics === 'module-collaboration' && runtimeOrder.verified) {
+      fail(`flows[${flowIndex}] 是模块协作示意，不能声称运行时顺序已验证。`);
+    }
+    if (semantics === 'runtime-verified' && (!runtimeOrder.verified || !runtimeOrder.evidence.length)) {
+      fail(`flows[${flowIndex}] 声称运行时已验证，但没有 verified=true 与非空证据。`);
+    }
     if (!Array.isArray(flow.steps) || flow.steps.length < 2 || flow.steps.length > 12) {
       fail(`flows[${flowIndex}].steps 必须是 2–12 步。`);
     }
@@ -111,6 +134,14 @@ function validateFlows(payload, nodes) {
       requireString(step.description, `${field}.description`);
       requireString(step.note, `${field}.note`);
       if (!MODULE_IDS.has(step.moduleId)) fail(`${field}.moduleId 非法。`);
+      const basis = step.basis ?? 'source-responsibility';
+      if (!FLOW_BASIS.has(basis)) fail(`${field}.basis 非法。`);
+      if (semantics === 'runtime-verified' && basis !== 'runtime-evidence') {
+        fail(`${field} 是运行时流程，但 basis 不是 runtime-evidence。`);
+      }
+      if (semantics === 'module-collaboration' && basis === 'runtime-evidence') {
+        fail(`${field} 标记了运行时证据，但场景是模块协作示意。`);
+      }
       const file = validateRelativeFile(step.file, `${field}.file`);
       const symbol = requireString(step.symbol, `${field}.symbol`);
       if (step.line !== null && (!Number.isInteger(step.line) || step.line <= 0)) {
@@ -129,9 +160,9 @@ function validateFlows(payload, nodes) {
       if (step.line !== null && node.sourceLine !== null && step.line !== node.sourceLine) {
         fail(`${field}.line=${step.line} 与快照节点行号 ${node.sourceLine} 不一致。`);
       }
-      return { ...step, file, symbol };
+      return { ...step, basis, file, symbol };
     });
-    return { ...flow, steps };
+    return { ...flow, semantics, runtimeOrder, steps };
   });
 }
 
@@ -155,28 +186,28 @@ async function main() {
 
   const next = {
     ...dataset,
-    schemaVersion: '1.2.0',
+    schemaVersion: '1.3.0',
     flows,
   };
   if (next.snapshot) {
     next.snapshot = {
       ...next.snapshot,
-      atlasSchemaVersion: '1.2.0',
+      atlasSchemaVersion: '1.3.0',
       notes: [
         ...(Array.isArray(next.snapshot.notes) ? next.snapshot.notes : []).filter(
-          (note) => !note.startsWith('P1.2 本地附加流程场景'),
+          (note) => !note.startsWith('P1.2 本地附加流程场景') && !note.startsWith('P1.3 本地附加协作场景'),
         ),
-        `P1.2 本地附加流程场景 ${flows.length} 个；仅引用快照已有节点，未重新扫描源码。`,
+        `P1.3 本地附加协作场景 ${flows.length} 个；仅引用快照已有节点，未重新扫描源码；场景默认是模块协作示意，不是运行时顺序。`,
       ],
     };
   }
   await writeFile(outPath, `${JSON.stringify(next)}\n`, 'utf8');
   console.log(
-    `[P1.2] 已附加 ${flows.length} 个流程场景、${flows.reduce((sum, flow) => sum + flow.steps.length, 0)} 个步骤到 ${path.relative(ROOT, outPath)}`,
+    `[P1.3] 已附加 ${flows.length} 个模块协作场景、${flows.reduce((sum, flow) => sum + flow.steps.length, 0)} 个步骤到 ${path.relative(ROOT, outPath)}`,
   );
 }
 
 main().catch((error) => {
-  console.error(`[P1.2] 流程场景附加失败：${error instanceof Error ? error.message : String(error)}`);
+  console.error(`[P1.3] 模块协作场景附加失败：${error instanceof Error ? error.message : String(error)}`);
   process.exitCode = 1;
 });

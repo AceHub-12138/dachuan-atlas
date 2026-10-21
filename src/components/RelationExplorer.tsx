@@ -17,7 +17,9 @@ import {
   type AtlasModuleId,
   type AtlasNode,
 } from '../architecture/schema';
+import { explainFile, explainModule, explainNode } from '../architecture/plain';
 import { CloseIcon } from './Icons';
+import { PlainExplanationCard } from './PlainExplanationCard';
 
 interface RelationExplorerProps {
   dataset: AtlasDataset;
@@ -91,6 +93,11 @@ export function RelationExplorer({
   );
   const counts = reviewCounts(allViews.map((view) => view.relation));
   const module = dataset.modules.find((item) => item.id === moduleId);
+  const explanation = useMemo(() => {
+    if (selectedNode) return explainNode(dataset, selectedNode.id);
+    if (selectedFile) return explainFile(dataset, moduleId, selectedFile) ?? explainModule(dataset, moduleId);
+    return explainModule(dataset, moduleId);
+  }, [dataset, moduleId, selectedFile, selectedNode]);
 
   const selectNode = (node: AtlasNode) => {
     setSelectedFile(node.sourceFile);
@@ -183,12 +190,16 @@ export function RelationExplorer({
             {selectedNode ? (
               <div className="explorer-node-summary">
                 <strong>{selectedNode.displayName ?? selectedNode.symbol}</strong>
-                <code>{selectedNode.symbol}</code>
-                <span>{selectedNode.responsibility ?? '未收录中文职责说明。'}</span>
+                <span>{selectedNode.responsibility ?? '未收录经核对的中文职责说明。'}</span>
                 <em>{reviewLabel(selectedNode.review)}</em>
                 <button type="button" onClick={() => setSelectedNodeId(null)}>
                   返回文件对象
                 </button>
+                <details className="explorer-node-summary__tech">
+                  <summary>技术标识</summary>
+                  <code>{selectedNode.symbol}</code>
+                  <code>{selectedNode.sourceFile}</code>
+                </details>
               </div>
             ) : null}
 
@@ -203,9 +214,10 @@ export function RelationExplorer({
                     type="button"
                     className={`explorer-row ${node.id === selectedNodeId ? 'is-active' : ''}`}
                     onClick={() => selectNode(node)}
+                    title={node.sourceFile ?? undefined}
                   >
                     <strong>{node.displayName ?? node.symbol}</strong>
-                    <span>{node.sourceFile ?? '外部引用'}</span>
+                    <span>{node.sourceFile ? shortFileName(node.sourceFile) : '外部引用'}</span>
                     <em>{node.moduleIds.map((id) => dataset.modules.find((item) => item.id === id)?.name ?? id).join(' · ')}</em>
                   </button>
                 ))}
@@ -243,9 +255,10 @@ export function RelationExplorer({
                       setSelectedFile(file.file);
                       setSelectedNodeId(null);
                     }}
+                    title={file.file}
                   >
                     <strong>{shortFileName(file.file)}</strong>
-                    <span>{file.file}</span>
+                    <span>{file.sample.length ? file.sample.join(' · ') : '未收录中文对象'}</span>
                     <em>
                       {file.nodeCount} 节点{file.supportingCount ? ` · ${file.supportingCount} 支撑` : ''}
                     </em>
@@ -256,11 +269,14 @@ export function RelationExplorer({
           </div>
 
           <div className="explorer-relations">
+            {explanation ? (
+              <PlainExplanationCard explanation={explanation} technical={!selectedNode} />
+            ) : null}
             {selectedNode ? (
               <>
                 <div className="explorer-relations__head">
                   <div>
-                    <span>关系</span>
+                    <span>已记录的关系</span>
                     <strong>{allViews.length} 条</strong>
                   </div>
                   <div className="explorer-relation-counts">
@@ -270,6 +286,11 @@ export function RelationExplorer({
                   </div>
                 </div>
 
+                <details className="explorer-technical">
+                  <summary>
+                    查看全部关系与技术细节
+                    <span>关系类型 · 审核 · 证据 · 源码定位</span>
+                  </summary>
                 <div className="explorer-filters">
                   <label>
                     <span>类型</span>
@@ -389,12 +410,13 @@ export function RelationExplorer({
                     当前筛选下没有关系。可放宽筛选，或到源码中核实未落边的调用。
                   </p>
                 ) : null}
+                </details>
               </>
             ) : (
-              <div className="explorer-placeholder">
-                <strong>选择一个文件或符号</strong>
+              <div className="explorer-placeholder explorer-placeholder--plain">
+                <strong>{selectedFile ? '选择一个组件查看关系' : '选择一个文件或组件'}</strong>
                 <p>
-                  按 模块 → 文件 → 符号 逐级查看关系。左侧搜索支持中文模块名、中文节点名、文件名和原始符号。
+                  先看上面的中文解释，再按 模块 → 文件 → 组件 逐级展开。技术标识、关系类型与完整源码证据都在可展开区域中。
                 </p>
                 <p>关系数据与画布装饰轨道完全分离；这里不会绘制装饰性连线。</p>
               </div>

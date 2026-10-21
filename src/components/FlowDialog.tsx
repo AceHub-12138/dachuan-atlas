@@ -59,18 +59,18 @@ export function FlowDialog({ dataset, onClose, onOpenData }: FlowDialogProps) {
         >
           <header className="flow-dialog__head">
             <div>
-              <span className="voice-panel__kicker">FLOW EXPLAINER</span>
-              <h2 id="flow-title">按流程理解</h2>
+              <span className="voice-panel__kicker">MODULE COLLABORATION · CONCEPTUAL</span>
+              <h2 id="flow-title">模块协作示意</h2>
             </div>
-            <button ref={closeRef} type="button" className="icon-button" onClick={onClose} aria-label="关闭流程说明">
+            <button ref={closeRef} type="button" className="icon-button" onClick={onClose} aria-label="关闭模块协作示意">
               <CloseIcon />
             </button>
           </header>
           <div className="flow-empty">
-            <strong>当前数据没有可用的流程场景</strong>
+            <strong>当前数据没有可用的模块协作示意</strong>
             <p>
-              流程场景是本地附加的解释材料，不会从关系图自动生成。导入包含流程场景的本地
-              ATLAS 快照后，这里会显示每一步的源码来源和未覆盖的运行时缺口。
+              协作示意是本地附加的解释材料，不是运行时流程，也不会从关系图自动生成。导入包含协作场景的本地
+              ATLAS 快照后，这里会显示每一步的源码来源和未覆盖的证据缺口。
             </p>
             <button type="button" className="graph-primary-action" onClick={onOpenData}>
               打开架构数据
@@ -100,12 +100,14 @@ export function FlowDialog({ dataset, onClose, onOpenData }: FlowDialogProps) {
       >
         <header className="flow-dialog__head">
           <div>
-            <span className="voice-panel__kicker">FLOW EXPLAINER · {view.scenario.entryModuleId.toUpperCase()}</span>
-            <h2 id="flow-title">按流程理解</h2>
+            <span className="voice-panel__kicker">
+              MODULE COLLABORATION · {view.scenario.entryModuleId.toUpperCase()}
+            </span>
+            <h2 id="flow-title">模块协作示意</h2>
           </div>
           <div className="flow-dialog__head-right">
-            <span className="source-flag source-flag--real">本地快照 · 解释材料</span>
-            <button ref={closeRef} type="button" className="icon-button" onClick={onClose} aria-label="关闭流程说明">
+            <span className="source-flag source-flag--real">本地快照 · 概念解释</span>
+            <button ref={closeRef} type="button" className="icon-button" onClick={onClose} aria-label="关闭模块协作示意">
               <CloseIcon />
             </button>
           </div>
@@ -116,25 +118,34 @@ export function FlowDialog({ dataset, onClose, onOpenData }: FlowDialogProps) {
             <h3>{view.scenario.title}</h3>
             <p>{view.scenario.summary}</p>
           </div>
-          <div className="flow-summary__counts">
-            <div>
-              <strong>{view.linkedCount}</strong>
-              <span>有图边</span>
+          <div className="flow-semantics" aria-label="语义分层">
+            <div data-kind="concept">
+              <strong>{view.semantics.conceptualStepCount}</strong>
+              <span>AI 概念步骤</span>
+              <em>按已核对职责整理</em>
             </div>
-            <div data-gap={view.gapCount > 0 || undefined}>
-              <strong>{view.gapCount}</strong>
-              <span>明确缺口</span>
+            <div data-kind="static">
+              <strong>{view.semantics.staticLinkCount}</strong>
+              <span>源码静态关联</span>
+              <em>有图边，不代表顺序</em>
             </div>
-            <div>
-              <strong>{view.unresolvedCount}</strong>
-              <span>位置缺失</span>
+            <div data-kind="runtime" data-verified={view.semantics.runtimeOrderVerified || undefined}>
+              <strong>{view.semantics.runtimeLinkCount}</strong>
+              <span>已验证运行时顺序</span>
+              <em>{view.semantics.runtimeOrderVerified ? '有运行时证据' : '当前没有运行时证据'}</em>
             </div>
-            <div>
-              <strong>{view.scenario.review.method === 'ai-source-review' ? 'AI' : '—'}</strong>
-              <span>场景整理来源</span>
+            <div data-kind="gap" data-gap={view.semantics.gapCount > 0 || undefined}>
+              <strong>{view.semantics.gapCount}</strong>
+              <span>缺少证据的衔接</span>
+              <em>不补线、不猜测</em>
             </div>
           </div>
         </div>
+        <p className="flow-semantics__note">
+          这是<strong>模块协作示意</strong>，不是执行流程。步骤顺序由 AI 根据已核对的模块职责整理；
+          相邻步骤之间只显示当前快照中确有记录的静态关系。{view.semantics.runtimeOrderNote}
+          {view.unresolvedCount ? ` 另有 ${view.unresolvedCount} 个步骤在当前快照中找不到源码位置。` : ''}
+        </p>
 
         {views.length > 1 ? (
           <div className="flow-tabs" role="tablist" aria-label="流程场景">
@@ -171,7 +182,7 @@ export function FlowDialog({ dataset, onClose, onOpenData }: FlowDialogProps) {
                   <span className="flow-step__main">
                     <strong>{step.step.title}</strong>
                     <small>
-                      {step.resolved ? step.evidenceLocator : '当前快照未找到源码位置'}
+                      {step.resolved ? '源码证据可展开 · 运行时顺序未验证' : '当前快照未找到源码位置'}
                     </small>
                   </span>
                   <span className={`flow-step__dot ${step.resolved ? '' : 'is-missing'}`} />
@@ -220,10 +231,10 @@ function TransitionButton({
   onClick: () => void;
 }) {
   const label =
-    transition.status === 'linked'
-      ? `${transition.relations.length} 条文件级关系`
-      : transition.status === 'gap'
-        ? '图谱缺口'
+    transition.kind === 'static-link'
+      ? `静态关联 · ${transition.relations.length} 条`
+      : transition.kind === 'gap'
+        ? '缺少证据'
         : '源码位置缺失';
   return (
     <button
@@ -247,10 +258,18 @@ function StepDetail({ step, view }: { step: FlowStepView; view: FlowView }) {
     <section className="flow-detail__section">
       <span className="graph-detail__kicker">STEP · {step.step.moduleId.toUpperCase()}</span>
       <h3>{step.step.title}</h3>
+      <div className="flow-detail__badges">
+        <span className="flow-status flow-status--concept">
+          {step.basis === 'runtime-evidence' ? '运行时证据步骤' : 'AI 概念步骤'}
+        </span>
+        <span className="flow-status flow-status--runtime">
+          运行时顺序：未验证
+        </span>
+      </div>
       <p className="flow-detail__description">{step.step.description}</p>
       <div className="flow-detail__source">
         <div>
-          <span>源码位置</span>
+          <span>源码位置（技术）</span>
           <code>{step.evidenceLocator ?? '未找到'}</code>
         </div>
         <div>
@@ -265,6 +284,9 @@ function StepDetail({ step, view }: { step: FlowStepView; view: FlowView }) {
       <div className="flow-detail__note">
         <strong>为什么可以这样描述</strong>
         <p>{step.step.note}</p>
+        <p className="flow-detail__caution">
+          这句话说明的是源码中已核对的职责，不是这次运行实际发生的调用顺序。
+        </p>
       </div>
       {step.node ? (
         <details className="graph-source" open>
@@ -326,11 +348,14 @@ function TransitionDetail({
       </h3>
       <div className="flow-detail__badges">
         <span className={`flow-status flow-status--${transition.status}`}>
-          {transition.status === 'linked'
-            ? '有文件级静态关系'
-            : transition.status === 'gap'
-              ? '当前图谱未覆盖'
+          {transition.kind === 'static-link'
+            ? '源码静态关联'
+            : transition.kind === 'gap'
+              ? '缺少证据'
               : '源码位置缺失'}
+        </span>
+        <span className="flow-status flow-status--runtime">
+          运行时顺序：{transition.runtimeVerified ? '已有证据' : '未验证'}
         </span>
       </div>
       <p className="flow-detail__description">{transition.note}</p>

@@ -2,7 +2,24 @@
 
 本目录中的截图均来自实际运行的 DACHUAN ATLAS 页面，通过浏览器截图 API 生成，不是效果图或后期合成。
 
-测试环境：macOS 15.7.8 / Apple M1 Ultra / 独立 Google Chrome（P1.2）/ ZCode 内置 Chromium 146（P0.1）。
+测试环境：macOS 15.7.8 / Apple M1 Ultra / 独立 Google Chrome（P1.2 / P1.3）/ ZCode 内置 Chromium 146（P0.1）。
+
+## P1.3 可信解释与备份
+
+| 文件 | 内容 | 视口 |
+| --- | --- | --- |
+| `P1.3-01-nexus-real-1920x1080.png` | NEXUS 真实星图 | 1920×1080 |
+| `P1.3-02-repositories-1920x1080.png` | 架构数据面板 · 仓库与快照登记 | 1920×1080 |
+| `P1.3-03-module-plain-1920x1080.png` | 模块详情 · 中文解释卡 | 1920×1080 |
+| `P1.3-04-flow-semantics-1920x1080.png` | 模块协作示意 · 四层语义与缺口 | 1920×1080 |
+| `P1.3-05-explorer-plain-1920x1080.png` | 关系探索 · 中文优先、技术细节展开 | 1920×1080 |
+| `P1.3-06-comprehension.png` | 理解检查 5/5 | 1920×1080 |
+| `P1.3-07-graph-plain-1920x1080.png` | 架构投影 · 节点中文解释 | 1920×1080 |
+| `P1.3-08-demo-regression-1920x1080.png` | 演示模式回归 | 1920×1080 |
+| `P1.3-09-nexus-real-1440x810.png` | 真实星图 1440 视口 | 1440×810 |
+| `P1.3-10-nexus-real-3840x2160.png` | 真实星图 4K 视口 | 3840×2160 |
+
+P1.3 截图由 `tools/verify-p13.mjs` 通过独立 Chrome CDP 生成；结果见 [../architecture/p1.3-chrome-verification.json](../architecture/p1.3-chrome-verification.json)。
 
 ## P1.2 真实架构投影
 

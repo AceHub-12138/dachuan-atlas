@@ -122,7 +122,7 @@ export function ArchitecturePanel({ data, onClose }: ArchitecturePanelProps) {
       >
         <header className="data-dialog__head">
           <div>
-            <span className="voice-panel__kicker">P1.1 · LOCAL DATA</span>
+            <span className="voice-panel__kicker">P1.3 · LOCAL DATA</span>
             <h2 id="data-dialog-title">架构数据</h2>
           </div>
           <button ref={closeRef} type="button" className="icon-button" onClick={onClose} aria-label="关闭架构数据">
@@ -240,6 +240,60 @@ export function ArchitecturePanel({ data, onClose }: ArchitecturePanelProps) {
               </div>
             </div>
           )}
+
+          <section className="data-section" aria-labelledby="data-repositories-title">
+            <div className="data-section__head">
+              <h3 id="data-repositories-title">仓库与快照</h3>
+              <span>多仓库准备 · P1.3</span>
+            </div>
+            <div className="data-repositories">
+              {(dataset.repositories ?? []).length ? (
+                <ul>
+                  {(dataset.repositories ?? []).map((repository) => (
+                    <li key={repository.id}>
+                      <div>
+                        <strong>{repository.name}</strong>
+                        <span>{repository.id} · {repository.system}</span>
+                      </div>
+                      {repository.snapshots.length ? (
+                        repository.snapshots.map((snapshot) => (
+                          <dl key={snapshot.snapshotKey}>
+                            <div>
+                              <dt>快照标识</dt>
+                              <dd><code>{snapshot.snapshotKey}</code></dd>
+                            </div>
+                            <div>
+                              <dt>提交</dt>
+                              <dd><code>{snapshot.commitShort}</code></dd>
+                            </div>
+                            <div>
+                              <dt>扫描时间</dt>
+                              <dd>{snapshot.scannedAt ?? '未记录（不能拿生成时间冒充）'}</dd>
+                            </div>
+                            <div>
+                              <dt>生成 / 导入</dt>
+                              <dd>{formatDate(snapshot.generatedAt)} / {formatDate(snapshot.importedAt)}</dd>
+                            </div>
+                            <div>
+                              <dt>规模</dt>
+                              <dd>{numberFormat.format(snapshot.nodeCount)} 节点 · {numberFormat.format(snapshot.relationCount)} 关系</dd>
+                            </div>
+                          </dl>
+                        ))
+                      ) : (
+                        <p>演示数据没有历史快照。</p>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p>当前数据集没有仓库登记；演示模式不包含真实仓库。</p>
+              )}
+              <p className="data-repositories__note">
+                当前只登记 NEXUS。CRM / Electron 尚未导入；未来每个仓库使用独立快照标识，不同进程与不同仓库的节点不会被合并成同一张运行时图。跨仓库关系必须提供接口 / 协议证据并经过复核。
+              </p>
+            </div>
+          </section>
 
           <section className="data-section" aria-labelledby="data-security-title">
             <div className="data-section__head">

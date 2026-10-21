@@ -31,6 +31,13 @@ const DEMO_GAPS = [
   '演示模式不包含源码证据；导入本地 ATLAS 快照后查看真实模块详情。',
 ];
 
+const DEMO_WHY: Record<AtlasModuleId, string> = {
+  data: '现场需要把分散的经营数据集中成可读的合同、回款、发货与覆盖视图，减少在多个系统之间切换。',
+  voice: '现场用户不方便键盘操作时，语音是最直接的提问方式；它把问题、服务端编排和答案返回串成一个交互体验。',
+  animation: '大屏需要稳定的节奏和一致的降级策略；统一调度可以避免多个动画时钟互相竞争，并在性能不足时自动收敛。',
+  canvas: '粒子与大屏背景需要高频绘制；Canvas 能力被宿主文件复用，因此作为分布式能力集合管理，而不是独立业务模块。',
+};
+
 function demoNode(
   id: string,
   name: string,
@@ -111,6 +118,10 @@ export function buildDemoDataset(): AtlasDataset {
     reviewRecord: emptyReview('演示模块，未进行源码复核。'),
     summary: DEMO_SUMMARIES[module.id],
     responsibilities: [module.description],
+    explanation: {
+      whyNeeded: DEMO_WHY[module.id],
+      review: emptyReview('演示解释，未与源码核对。'),
+    },
     keyComponents: [],
     gaps: DEMO_GAPS,
     rule: '演示模块，不进行源码归类。',
@@ -162,6 +173,7 @@ export function buildDemoDataset(): AtlasDataset {
     nodes: [...systemNodes, ...moduleNodes].sort((a, b) => a.id.localeCompare(b.id, 'en')),
     relations: relations.sort((a, b) => a.id.localeCompare(b.id, 'en')),
     flows: [],
+    repositories: [],
     diagnostics: {
       issues: [
         {

@@ -1,8 +1,8 @@
 # DACHUAN ATLAS · 大川项目架构星图
 
-> **P1.2 真实架构投影 + P1.1 本地数据探索 + P0.1 视觉原型。** 默认构建只包含演示数据；真实 NEXUS 快照需在本地明确导入。NEXUS 模块层会绘制有证据的跨模块连线，并可进入模块 → 文件 → 符号投影、查看路径与按流程理解。模块位置、中枢连接、星点、轨道与流星仍是演示构图。CRM / Electron 尚未接入真实架构数据。
+> **P1.3 可信架构解释 + P1.2 真实架构投影 + P0.1 视觉原型。** 默认构建只包含演示数据；真实 NEXUS 快照需在本地明确导入。模块、文件与符号探索默认展示中文解释，技术细节可展开；语音场景改称「模块协作示意」，严格区分概念步骤、静态关联、已验证运行时顺序与证据缺口。NEXUS 模块层会绘制有证据的跨模块连线。模块位置、中枢连接、星点、轨道与流星仍是演示构图。CRM / Electron 尚未接入真实架构数据。
 
-一套用于评估「电影式宇宙星系 × 未来数字神经网络」视觉语言的独立前端原型，并在此基础上验证 Graphify 架构数据能否被可靠读取。它把 DACHUAN 软件体系映射为一座可探索的系统宇宙，通过三级镜头运动串联：**系统宇宙 → NEXUS 模块星系 → 模块详情 / 架构投影 / 按流程理解**。
+一套用于评估「电影式宇宙星系 × 未来数字神经网络」视觉语言的独立前端原型，并在此基础上验证 Graphify 架构数据能否被可靠读取。它把 DACHUAN 软件体系映射为一座可探索的系统宇宙，通过三级镜头运动串联：**系统宇宙 → NEXUS 模块星系 → 模块详情 / 架构投影 / 模块协作示意**。
 
 ![DACHUAN ATLAS 首页](docs/screenshots/01-home-1920x1080.png)
 
@@ -41,12 +41,12 @@ npm run build
 npm run verify:build
 ```
 
-P1.2 浏览器验收与性能对照需要本地 preview 已启动：
+P1.3 浏览器验收、性能对照与备份审计需要本地 preview 已启动：
 
 ```bash
-node tools/verify-p12.mjs          # 独立 Chrome；导入、投影、流程、路径、截图
-HEADFUL=1 node tools/perf-p12.mjs  # 可见 Chrome；性能对照
-node tools/record-p12.mjs          # 可见 Chrome；交互录屏
+node tools/verify-p13.mjs          # 独立 Chrome；语义、中文解释、理解检查、导出重导入
+HEADFUL=1 node tools/perf-p12.mjs  # 可见 Chrome；性能对照（结果另存为 p1.3-performance.json）
+node tools/audit-backup.mjs        # 隔离目录恢复、测试、构建、真实数据重新导入
 ```
 
 `npm test` 不依赖 Graphify 目录；设置 `GRAPHIFY_POC_DIR` 可额外重跑原始 `graph.json` 的一致性测试。真实快照输出到 `local-data/`（已忽略），不会进入 `public/` 或 `dist/`。`attach:flows` 只把本地流程场景附加到已有快照，不扫描源码工作区；流程文件同样位于 `local-data/`，不进入默认构建。项目运行时不请求任何第三方服务。
@@ -58,13 +58,13 @@ node tools/record-p12.mjs          # 可见 Chrome；交互录屏
 | 层级 | 可做的事 |
 | --- | --- |
 | 系统宇宙 | 悬停查看星系中文名称与模拟说明；点击 NEXUS 进入模块层；点击 CRM / Electron 可选中并查看简要信息 |
-| NEXUS 模块星系 | 本地快照导入后绘制有证据的跨模块连线；左下角投影摘要区分证据线型与构图线，并可打开架构投影 / 按流程理解 |
-| 模块详情 | 组成与内部关系分开呈现；列出与其他模块的已记录关系；Canvas 明确标记为分布式能力集合；可进入关系探索、架构投影与流程说明 |
-| 架构投影 | 模块 → 文件 → 符号渐进展开；默认只渲染当前层级；支持类型 / 审核 / 证据筛选 |
-| 按流程理解 | 7 步语音场景；每一步有源码来源，4 个衔接有文件级关系，2 个衔接明确标为图谱缺口 |
+| NEXUS 模块星系 | 本地快照导入后绘制有证据的跨模块连线；左下角投影摘要区分证据线型与构图线，并可打开架构投影 / 模块协作示意 / 5 题理解检查 |
+| 模块详情 | 默认显示「用中文理解」：负责什么、为什么需要、已记录联系、仍需确认；组成与内部关系分开呈现；Canvas 明确标记为分布式能力集合 |
+| 架构投影 | 模块 → 文件 → 符号渐进展开；默认先显示中文解释，技术标识与完整证据在可展开区域；支持类型 / 审核 / 证据筛选 |
+| 模块协作示意 | 7 个 AI 概念步骤；每一步有源码来源，4 个衔接有静态关系，2 个衔接明确标为缺少证据；0 个衔接被验证为运行时顺序 |
 | 路径探索 | 在两个已知产品节点之间查询既有静态关系；无路径时显示“当前图谱未发现关系路径” |
-| 关系探索 | 按模块 → 文件 → 符号浏览；支持中文/文件/符号搜索，按类型、审核、证据、方向筛选 |
-| 架构数据 | 点击右上角数据徽标，默认演示数据；选择本地 `.atlas.json` 后才加载真实快照，并查看隐私体检、导入导出 |
+| 关系探索 | 默认中文解释 + 中性关系摘要；技术名称、路径、类型与完整证据在可展开区域；支持中文/文件/符号搜索与筛选 |
+| 架构数据 | 点击右上角数据徽标，默认演示数据；选择本地 `.atlas.json` 后才加载真实快照，并查看仓库/快照登记、隐私体检、导入导出 |
 
 其他辅助操作：
 
@@ -148,18 +148,40 @@ ATLAS 标准数据集 → 关系筛选与聚合 → 星图布局数据 → Canva
 
 ![路径查询](docs/screenshots/P1.2-05-path-query-1920x1080.png)
 
-### 3.4 按流程理解
+### 3.4 模块协作示意（P1.3 语义修正）
 
-第一轮选择语音场景「语音提问：从麦克风到覆盖层」，共 7 步。步骤与说明来自本地附加的流程数据，每一步必须能在快照中找到对应文件、符号和模块；前端不自动生成业务流程。
+语音场景「语音提问：从麦克风到覆盖层」保留 7 步和 2 个缺口，但不再称为“流程”。界面固定显示四层语义：
 
-- 4 个步骤衔接有文件级静态关系；2 个衔接（音频缓存 → PCM 播放、PCM 播放 → 覆盖层）没有图边，明确标为 **图谱缺口**。
-- 缺口不补线，也不把步骤顺序描述成已验证的运行时调用。
+| 层 | 当前数量 | 含义 |
+| --- | --- | --- |
+| AI 概念步骤 | 7 | AI 根据已核对模块职责整理，不代表执行顺序 |
+| 源码静态关联 | 4 | 相邻步骤文件之间确有导入/引用等静态关系 |
+| 已验证运行时顺序 | 0 | 没有 trace、日志或协议测试证据 |
+| 缺少证据的衔接 | 2 | 音频缓存 → PCM 播放、PCM 播放 → 覆盖层没有图边 |
+
+- 缺口不补线，不把步骤顺序描述成已验证的运行时调用。
+- 每一步仍能展开到当前快照中的真实文件、符号与源码证据。
 - 场景审核为 **AI 源码复核**，独立人工审核为 0。
-- 流程场景只存在于 `local-data/`，不进入默认构建。`npm run attach:flows` 只读取已有快照，不扫描 NEXUS 工作区。
+- 本地附加工具只读取已有快照，不扫描 NEXUS 工作区。
 
-![按流程理解与图谱缺口](docs/screenshots/P1.2-08-flow-gap-1920x1080.png)
+![模块协作示意与缺口](docs/screenshots/P1.3-04-flow-semantics-1920x1080.png)
 
-完整报告：[P1.2-REPORT.md](docs/P1.2-REPORT.md) · P1.1 报告：[P1.1-REPORT.md](docs/P1.1-REPORT.md) · Schema：[ATLAS-SCHEMA.md](docs/architecture/ATLAS-SCHEMA.md) · 模块证据：[NEXUS-MODULE-EVIDENCE.md](docs/architecture/NEXUS-MODULE-EVIDENCE.md)
+### 3.5 中文解释层与理解检查
+
+- 模块详情、关系探索和架构投影默认先显示「用中文理解」：它负责什么、为什么需要它、与当前对象有什么已记录联系、仍需确认什么。
+- 没有经核对中文说明的文件/符号明确显示“未收录，不自动生成”，不会用模型补写。
+- 原始符号、源码路径、关系类型与完整证据都在“技术细节 / 源码证据”折叠区。
+- 「理解检查 · 5 题」覆盖 NEXUS 功能领域、语音主要组件、动画调度器、Canvas 边界和图谱连接含义；结果仅用于自我检查，不是认证。
+
+![中文解释层](docs/screenshots/P1.3-05-explorer-plain-1920x1080.png)
+
+### 3.6 备份与多仓库准备
+
+- 隔离目录从 Git bundle 恢复 → `npm ci` → `npm test` → `npm run build` → `verify:build` → 浏览器重新导入真实快照；结果见 [p1.3-backup-audit.json](docs/architecture/p1.3-backup-audit.json)。
+- Mac → Windows 的完整文件清单、SHA-256 校验、PowerShell 命令和验收清单见 [P1.3-MAC-TO-WINDOWS.md](docs/P1.3-MAC-TO-WINDOWS.md)。
+- Schema 1.3 增加可选的仓库登记、快照标识、跨仓库关系范围与运行时边界；CRM / Electron 只完成设计，没有扫描或导入。详见 [P1.3-MULTI-REPO.md](docs/P1.3-MULTI-REPO.md)。
+
+完整报告：[P1.3-REPORT.md](docs/P1.3-REPORT.md) · P1.2 报告：[P1.2-REPORT.md](docs/P1.2-REPORT.md) · Schema：[ATLAS-SCHEMA.md](docs/architecture/ATLAS-SCHEMA.md) · 模块证据：[NEXUS-MODULE-EVIDENCE.md](docs/architecture/NEXUS-MODULE-EVIDENCE.md)
 
 ```bash
 npm run import:graphify -- --graphify "../graphify-poc" \
@@ -273,6 +295,21 @@ npm run verify:build
 - 4K 是 Chromium 视口渲染，不是物理 4K 显示器验收。
 - 原始采样与说明：[p1.2-performance.json](docs/architecture/p1.2-performance.json)。
 
+### P1.3 实测（2026-10-21，可见 Chrome）
+
+P1.3 没有改 Canvas 引擎；新增中文解释与弹窗只在交互时渲染。同一环境下复测：
+
+| 场景 | 分辨率 | 平均 / p95 绘制 | FPS | 备注 |
+| --- | --- | --- | --- | --- |
+| 演示 · 完整 | 1920×1080 | 1.06 / 2.10 ms | 100.0 | |
+| 真实快照 · 完整 | 1920×1080 | 0.95 / 1.85 ms | 100.0 | 3 条真实跨模块边 |
+| 架构投影 · 模块层 | 1920×1080 | 0.32 ms | 99.8 | 4 节点 / 3 边 |
+| 真实快照 · 完整 | 2560×1440 | 1.57 / 2.75 ms | 100.0 | 浏览器视口 |
+| 真实快照 · 完整 | 3840×2160 | 1.63 / 2.92 ms | 99.9 | 浏览器视口 |
+
+- 原始采样：[p1.3-performance.json](docs/architecture/p1.3-performance.json)。
+- 与 P1.2 的差异在运行波动范围内；没有新增逐帧计算。
+
 ---
 
 ## 7. 验收状态
@@ -299,6 +336,14 @@ npm run verify:build
 | P1.2 1440p / 4K | 通过（浏览器视口；无横向溢出） |
 | P1.2 性能对照 | 通过（可见 Chrome；见上表） |
 | P1.2 交互录屏 | 完成（50.6 秒，1440×810，30 FPS） |
+| P1.3 语义区分 | 通过（7 概念步骤 / 4 静态关联 / 0 运行时顺序 / 2 缺口） |
+| P1.3 中文解释层 | 通过（模块 / 文件 / 符号默认中文；技术细节折叠） |
+| P1.3 理解检查 | 通过（5 题；全对 5/5、全错 0/5） |
+| P1.3 多仓库兼容性 | 通过单元测试（仓库前缀、快照标识、跨仓库/跨进程规则） |
+| P1.3 备份隔离恢复 | 通过（bundle → 测试 → 构建 → 浏览器导入；见审计 JSON） |
+| P1.3 测试 | 通过（113 项通过 + 1 项跳过，14 个测试文件） |
+| P1.3 构建安全门禁 | 通过；dist 无快照、提交 SHA、内部符号、源码路径或流程场景 |
+| P1.3 Windows 实机 | **待 Windows 验收** |
 | P1.1 四模块真实详情 | 通过（独立 Chrome + 截图） |
 | P1.1 关系搜索 / 筛选 | 通过（23 条关系；AI 筛选 4 条） |
 | P1.1 旧 Schema 1.0 兼容 | 通过单元测试迁移 |
@@ -331,6 +376,21 @@ P0.1 没有接入 Graphify；P1.1 / P1.2 只接入用户本地导入的 Graphify
 ![语音交互详情](docs/screenshots/04-voice-detail-1920x1080.png)
 
 所有截图均由实际运行的页面通过浏览器截图获得，不是后期合成效果图。
+
+### P1.3 可信解释与备份截图
+
+| 画面 | 文件 |
+| --- | --- |
+| NEXUS 真实星图 · 1920×1080 | [查看](docs/screenshots/P1.3-01-nexus-real-1920x1080.png) |
+| 仓库与快照登记 | [查看](docs/screenshots/P1.3-02-repositories-1920x1080.png) |
+| 模块详情 · 中文解释 | [查看](docs/screenshots/P1.3-03-module-plain-1920x1080.png) |
+| 模块协作示意 · 四层语义 | [查看](docs/screenshots/P1.3-04-flow-semantics-1920x1080.png) |
+| 关系探索 · 中文优先 | [查看](docs/screenshots/P1.3-05-explorer-plain-1920x1080.png) |
+| 理解检查 · 5 题 | [查看](docs/screenshots/P1.3-06-comprehension.png) |
+| 架构投影 · 中文解释 | [查看](docs/screenshots/P1.3-07-graph-plain-1920x1080.png) |
+| 演示模式回归 | [查看](docs/screenshots/P1.3-08-demo-regression-1920x1080.png) |
+| NEXUS 真实星图 · 1440×810 | [查看](docs/screenshots/P1.3-09-nexus-real-1440x810.png) |
+| NEXUS 真实星图 · 3840×2160 | [查看](docs/screenshots/P1.3-10-nexus-real-3840x2160.png) |
 
 ### P1.2 真实架构投影截图
 
@@ -408,24 +468,26 @@ P0.1 没有接入 Graphify；P1.1 / P1.2 只接入用户本地导入的 Graphify
 
 1. 系统位置、模块位置、中枢连接、星点、轨道、流星与模块外圈卫星仍是演示构图；只有本地快照中确有证据的跨模块连线才由数据绘制。
 2. 真实架构数据只在用户本地导入后出现；默认构建与首次访问均为演示数据。
-3. CRM / Electron 尚未接入真实架构数据；P1.2 未扫描这两个仓库，也未扫描 NEXUS 工作区。
+3. CRM / Electron 尚未接入真实架构数据；P1.3 未扫描这两个仓库，也未重新扫描 NEXUS 工作区。多仓库只完成 Schema 兼容层与设计。
 4. 13 条关系为 AI 源码复核，独立人工审核为 0；3,157 条仍待核实；42 条 INFERRED 不等于事实；Canvas 模块为部分核实。
 5. 当前快照的模块层只有 3 个有向模块对（48 条关系），没有 Canvas 主模块连线，也没有跨模块 INFERRED 边；界面不会为了“更丰满”补线。
 6. 模块级聚合按主模块去重；Canvas 等支撑成员关系不会重复计为模块节点。文件/符号层显示的是有限子图，未显示不等于不存在。
 7. 路径查询是产品范围内的无向静态关系搜索，最多 6 步；只返回找到的一条路径，不保证唯一，不代表运行时调用顺序。
-8. 按流程理解目前只有 1 个语音场景、7 步；4 个衔接有文件级关系，2 个衔接是图谱缺口。步骤顺序是解释材料，不是已验证的运行时调用链。
-9. 流程场景只存在于本地附加数据；没有 `npm run attach:flows` 的机器需要重新附加，不能从源码自动生成。
-10. 详情面板和架构投影右栏在 1080p 下需要面板内滚动，这是固定高度面板的预期行为。
-11. P1.2 录屏为 1440×810、30 FPS；底部步骤说明与光标环是录制时注入的演示层，不属于产品界面。
-12. 页面以桌面端为重点，支持窄屏降级，但手机端不是本轮验收目标。
-13. 独立 Google Chrome 已验收；Microsoft Edge、Safari、Firefox 尚未复核。
-14. 未在 Windows 实机运行，未在物理 4K 显示器输出，不能据此宣称双平台或全部显示设备已通过验收。
+8. 模块协作示意目前只有 1 个语音场景、7 个 AI 概念步骤；4 个衔接有静态关系，2 个衔接缺少证据。0 个衔接被验证为运行时顺序。
+9. 模块协作场景与模块解释只存在于本地附加数据；迁移机器需要携带 `local-data`，不能从源码自动生成。
+10. 备份目前仅在**本机**：`~/Documents/DACHUAN-ATLAS-private-backups`；尚未完成异机备份，Windows 实机恢复未执行。
+11. 多仓库设计未包含 CRM / Electron 的真实模块映射、扫描结果或跨仓库接口证据；导入新仓库仍需要下一轮明确授权。
+12. 详情面板和架构投影右栏在 1080p 下需要面板内滚动，这是固定高度面板的预期行为。
+13. P1.2 录屏为 1440×810、30 FPS；P1.3 未重新录屏。
+14. 页面以桌面端为重点，支持窄屏降级，但手机端不是本轮验收目标。
+15. 独立 Google Chrome 已验收；Microsoft Edge、Safari、Firefox 尚未复核。
+16. 未在 Windows 实机运行，未在物理 4K 显示器输出，不能据此宣称双平台或全部显示设备已通过验收。
 
 ---
 
 ## 10. Windows 迁移注意事项
 
-当前源码没有硬编码 macOS 路径，也不依赖 macOS 特有 API。迁移到 Windows 时：
+完整、面向非程序员的步骤、文件清单、SHA-256 校验与验收清单见 **[P1.3-MAC-TO-WINDOWS.md](docs/P1.3-MAC-TO-WINDOWS.md)**。以下为摘要：
 
 1. 安装 Node.js 22 LTS 或更高版本（最低 `^20.19.0 || >=22.12.0`）。
 2. 将整个项目目录复制到 Windows，在 PowerShell 或终端中执行 `npm install`、`npm run dev`。
@@ -437,7 +499,7 @@ P0.1 没有接入 Graphify；P1.1 / P1.2 只接入用户本地导入的 Graphify
 8. 数据导入 CLI 使用 Node 跨平台 API，路径统一为 POSIX 相对路径；盘符路径与 UNC 会被拒绝。建议在 Windows 实机执行 `npm test` 与一次 `npm run import:graphify`。
 9. 浏览器导入使用标准 File API，不要求 Bash；快照数据是本地静态文件，离线可读。
 10. 流程场景需要本地 `.flows.json`；在 Windows 上执行 `npm run attach:flows`，或直接导入已附加流程的 `.atlas.json`。不要从 NEXUS 工作区自动生成。
-11. CDP 验收脚本 `verify-p12.mjs`、`perf-p12.mjs`、`record-p12.mjs` 使用 Node 20+ 内置 WebSocket；Windows 可使用同一 Chrome 路径或设置 `CHROME_PATH`。
+11. CDP 验收脚本 `verify-p13.mjs` / `verify-p12.mjs`、`perf-p12.mjs`、`record-p12.mjs` 使用 Node 20+ 内置 WebSocket；Windows 可使用同一 Chrome 路径或设置 `CHROME_PATH`。
 
 **Windows 状态：待 Windows 验收。**
 
@@ -445,13 +507,16 @@ P0.1 没有接入 Graphify；P1.1 / P1.2 只接入用户本地导入的 Graphify
 
 ## 11. 私有版本控制与备份方案
 
-项目此前没有 Git 仓库。P1.2 施工前已建立 **仅本机、无远程仓库** 的私有版本控制，并做了两份离线备份；没有创建 GitHub / GitLab 远程，也没有上传任何文件。
+P1.2 施工前已建立 **仅本机、无远程仓库** 的私有版本控制；P1.3 继续沿用，没有创建 GitHub / GitLab 远程，也没有上传任何文件。
 
-- **本地 Git**：`git init -b main`；基线提交 `fa2c129`（P1.1 状态），P1.2 代码提交 `df71ab8`，最终验收提交 `814a04e`；`local-data/`、`dist/`、`node_modules/` 继续由 `.gitignore` 排除。
-- **P1.1 基线 bundle**：`~/Documents/DACHUAN-ATLAS-private-backups/atlas-p11-20261021-071831.bundle`（约 54 MB，不含 `local-data`）。
-- **P1.2 最终 bundle**：`~/Documents/DACHUAN-ATLAS-private-backups/atlas-p12-final-20261021.bundle`（包含最终源码、文档、13 张截图与录屏；不含 `local-data`）。
-- **快照副本**：`local-data-p12-final-20261021/` 下包含 1.2.0 快照与流程文件；另有 P1.1 原始快照与前一轮 P1.2 bundle。
-- **校验**：`SHA256-p12-final-20261021.txt` 记录 bundle、快照与流程的 SHA-256；同目录 `RESTORE-p12-final-20261021.md` 说明恢复步骤。
+- **本地 Git**：`git init -b main`；基线提交 `fa2c129`（P1.1），P1.2 最终提交 `330be91`，P1.3 提交见本轮报告；`local-data/`、`dist/`、`node_modules/` 继续由 `.gitignore` 排除。
+- **P1.1 基线 bundle**：`atlas-p11-20261021-071831.bundle`（约 54 MB，不含 `local-data`）。
+- **P1.2 最终 bundle**：`atlas-p12-final-20261021.bundle`（源码、文档、13 张截图与录屏；不含 `local-data`）。
+- **P1.3 最终 bundle**：`atlas-p13-final-20261021.bundle`（源码、文档、P1.3 截图、测试与验收记录；不含 `local-data`）。
+- **快照副本**：`local-data-p13-final-20261021/` 包含 Schema 1.3.0 快照、模块协作场景与模块解释；另保留 P1.1 / P1.2 副本。
+- **校验**：`SHA256-p13-final-20261021.txt` 记录 bundle、快照、流程与解释文件的 SHA-256；`RESTORE-p13-final-20261021.md` 说明恢复步骤。
+- **恢复审计**：`node tools/audit-backup.mjs` 已在本机隔离目录执行 bundle 克隆、`npm ci`、测试、构建、构建门禁与浏览器重新导入；结果见 `docs/architecture/p1.3-backup-audit.json`。
+- **当前限制**：**仅本机备份，尚未完成异机备份**；Windows 实机恢复未执行。完成 `docs/P1.3-MAC-TO-WINDOWS.md` 第 6 节才算异机恢复验证。
 - **建议的后续做法**：
   1. 继续使用本地 Git，按轮次提交；不要添加公开远程。
   2. 每次结构变更后生成新的 `git bundle`，复制到加密磁盘或离线介质。
@@ -469,11 +534,16 @@ P0.1 没有接入 Graphify；P1.1 / P1.2 只接入用户本地导入的 Graphify
 │   ├── App.tsx                  # 三级视图、数据源、投影/流程弹窗状态
 │   ├── architecture/
 │   │   ├── projection.ts        # Graph Projection、聚合、筛选、路径、缓存
-│   │   ├── flows.ts             # 流程场景解析、步骤衔接与缺口检测
-│   │   └── ...                  # Schema 1.2、适配器、查询、隐私、审核记录
+│   │   ├── flows.ts             # 模块协作场景、四层语义与缺口检测
+│   │   ├── plain.ts             # 中文解释层（模块/文件/符号）
+│   │   ├── comprehension.ts     # 5 题理解检查题库与计分
+│   │   ├── multi-repo.ts        # 仓库/快照索引、跨仓库/跨进程辅助
+│   │   └── ...                  # Schema 1.3、适配器、查询、隐私、审核记录
 │   ├── components/
-│   │   ├── GraphWorkspace.tsx   # 架构投影工作台
-│   │   ├── FlowDialog.tsx       # 按流程理解
+│   │   ├── GraphWorkspace.tsx   # 架构投影工作台 + 中文解释
+│   │   ├── FlowDialog.tsx       # 模块协作示意（四层语义）
+│   │   ├── PlainExplanationCard.tsx # 中文解释卡
+│   │   ├── ComprehensionDialog.tsx  # 5 题理解检查
 │   │   └── ...                  # 顶栏、导览、详情面板、架构数据面板
 │   ├── data/atlas.ts            # 模拟布局与独立装饰卫星数据
 │   ├── hooks/                   # 动效偏好、架构数据状态
@@ -483,24 +553,31 @@ P0.1 没有接入 Graphify；P1.1 / P1.2 只接入用户本地导入的 Graphify
 │   │   └── math.ts              # 曲线、缓动与颜色工具
 │   ├── styles/                  # 基础、场景界面、浮层三类样式
 │   └── assets/fonts/            # 本地 WOFF2 字体
-├── local-data/nexus/            # 本地快照与流程（.gitignore，不进入构建）
-├── tests/architecture/          # 93 项通过 + 1 项跳过的架构数据测试
+├── local-data/nexus/            # 本地快照、协作场景与模块解释（.gitignore，不进入构建）
+├── tests/architecture/          # 113 项通过 + 1 项跳过的架构数据测试
 ├── tools/
 │   ├── import-graphify.mjs      # 跨平台 Graphify → ATLAS CLI
-│   ├── attach-flows.mjs         # 本地流程附加与节点存在性校验
+│   ├── attach-flows.mjs         # 本地模块协作场景附加与节点存在性校验
+│   ├── attach-explanations.mjs  # 本地模块“为什么需要它”解释附加
+│   ├── audit-backup.mjs         # bundle 恢复、构建、测试与浏览器重导入审计
 │   ├── verify-build.mjs         # 默认构建安全门禁
 │   ├── verify-chrome.mjs        # P1.1 独立 Chrome 验收
-│   ├── verify-p12.mjs           # P1.2 独立 Chrome 验收（12 张截图）
-│   ├── perf-p12.mjs             # P1.2 可见 Chrome 性能对照
+│   ├── verify-p13.mjs           # P1.3 独立 Chrome 验收（语义/解释/检查）
+│   ├── verify-p12.mjs           # P1.2 独立 Chrome 回归
+│   ├── perf-p12.mjs             # 可见 Chrome 性能对照
 │   └── record-p12.mjs           # P1.2 CDP 交互录屏
 ├── docs/
-│   ├── architecture/            # Schema、模块证据、导入审计、P1.2 验证/性能
-│   ├── screenshots/             # P0.1 / P1.0 / P1.1 / P1.2 实机截图
+│   ├── architecture/            # Schema、模块证据、P1.2/P1.3 验证、性能、备份审计
+│   ├── screenshots/             # P0.1 / P1.0 / P1.1 / P1.2 / P1.3 实机截图
 │   ├── recording/               # P1.2 50.6 秒 + P0.1 23.4 秒录屏
 │   ├── P0.1-REPORT.md           # P0.1 视觉优化记录
 │   ├── P1.0-REPORT.md           # P1.0 历史记录
 │   ├── P1.1-REPORT.md           # P1.1 安全、审核、详情与关系探索报告
 │   ├── P1.2-REPORT.md           # P1.2 架构投影、流程、路径与验收
+│   ├── P1.3-REPORT.md           # P1.3 语义、解释、备份与多仓库准备
+│   ├── P1.3-MULTI-REPO.md       # 多仓库接入设计
+│   ├── P1.3-MAC-TO-WINDOWS.md   # Mac → Windows 迁移指南
+│   ├── P1.3-BACKUP-REPORT.md    # 备份与恢复验证报告
 │   └── TEST-REPORT.md           # P0 基线验收记录
 ├── licenses/                    # 字体 OFL 许可证
 └── THIRD_PARTY_NOTICES.md
@@ -515,9 +592,9 @@ DACHUAN ATLAS 是独立视觉原型与数据适配演示，必须区分四类信
 - **画布演示构图**：系统与模块位置、中枢连接、星点、轨道、流星、模块标签与装饰卫星均为演示设定。只有本地快照中存在证据的跨模块连线由数据绘制；橙色中枢连接仍属构图。
 - **演示数据**：默认数据源中的 7 个节点 / 7 条关系为 `SIMULATED`，不来自源码；演示模式不生成真实投影或流程。
 - **本地 NEXUS 快照**：用户主动导入 `.atlas.json` 后，架构数据面板、四个模块详情、关系探索、Graph Projection 与流程证据中的节点/关系/统计来自提交 `2584284e3e7b994d0510d9d53b2a302e3aa740bc`（图谱生成 2026-10-20）。它只代表该历史提交，不代表 NEXUS 当前工作区，也不进入默认构建。
-- **流程场景**：P1.2 的语音流程由本地附加数据提供，7 个步骤都引用该快照中真实存在的节点；4 个衔接有文件级静态关系，2 个衔接没有图边，明确显示为缺口。它不是自动生成的业务流程，也不代表运行时顺序。
+- **模块协作示意**：P1.3 的语音场景由本地附加数据提供，7 个概念步骤都引用该快照中真实存在的节点；4 个衔接有静态关系，2 个衔接没有图边，明确显示为缺少证据。它不是自动生成的业务流程，0 个衔接被验证为运行时顺序。
 - **未核实信息**：13 条关系为 AI 源码复核，独立人工审核为 0；3,157 条仍待核实；42 条 Graphify INFERRED 关系不等于事实；Canvas 模块仅部分核实。Graphify 未识别的 rAF、Canvas API、CSS、React 回调与跨进程关系，不代表不存在。
 
 CRM / Electron 尚未接入真实架构数据。模块外圈的卫星、微轨道、星尘与流星属于装饰效果，不代表数据传输或架构关系；它们不参与投影、路径或统计。
 
-P1.2 在 Graph Projection、真实星图、模块中文解释、流程缺口、路径探索、性能对照、浏览器验收与交互录屏完成后停止，等待下一轮架构审核。
+P1.3 在语义修正、中文解释层、5 题理解检查、备份恢复审计、Windows 迁移指南与多仓库设计完成后停止，等待下一轮架构审核。CRM / Electron 没有扫描或导入。

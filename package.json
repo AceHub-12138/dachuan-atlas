@@ -1,8 +1,8 @@
 {
   "name": "dachuan-atlas",
   "private": true,
-  "version": "0.4.0",
-  "description": "DACHUAN ATLAS — 大川项目架构星图 / P1.2 真实架构投影、流程理解与路径探索",
+  "version": "0.5.0",
+  "description": "DACHUAN ATLAS — 大川项目架构星图 / P1.3 可信架构解释、备份迁移与多仓库准备",
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1",
@@ -13,8 +13,11 @@
     "test:watch": "vitest",
     "import:graphify": "tsc -p tsconfig.tools.json && node tools/import-graphify.mjs",
     "attach:flows": "node tools/attach-flows.mjs",
+    "attach:explanations": "node tools/attach-explanations.mjs",
     "verify:build": "node tools/verify-build.mjs",
-    "verify:chrome": "node tools/verify-chrome.mjs"
+    "verify:chrome": "node tools/verify-chrome.mjs",
+    "verify:p13": "node tools/verify-p13.mjs",
+    "audit:backup": "node tools/audit-backup.mjs"
   },
   "dependencies": {
     "react": "^19.3.1",

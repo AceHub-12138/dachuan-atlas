@@ -21,6 +21,7 @@ import {
   type ProjectionNode,
 } from '../architecture/projection';
 import { RELATION_TYPE_LABELS, searchNodes, type ReviewGroup } from '../architecture/query';
+import { explainFile, explainModule, explainNode } from '../architecture/plain';
 import {
   REVIEW_LABELS,
   reviewLabel,
@@ -31,6 +32,7 @@ import {
 import { ProjectionCanvasScene, type ProjectionCanvasMetrics } from '../scene/ProjectionCanvas';
 import type { MotionMode } from '../scene/AtlasScene';
 import { ArrowRight, CloseIcon } from './Icons';
+import { PlainExplanationCard } from './PlainExplanationCard';
 
 declare global {
   interface Window {
@@ -302,7 +304,7 @@ export function GraphWorkspace({
       >
         <header className="graph-dialog__head">
           <div>
-            <span className="voice-panel__kicker">GRAPH PROJECTION · P1.2</span>
+            <span className="voice-panel__kicker">GRAPH PROJECTION · P1.3</span>
             <h2 id="graph-title">架构投影</h2>
           </div>
           <div className="graph-dialog__head-right">
@@ -530,6 +532,14 @@ function NodeDetail({
           .sort((a, b) => (a.sourceLine ?? 0) - (b.sourceLine ?? 0))
           .slice(0, 8)
       : [];
+  const explanation =
+    node.level === 'module' && node.moduleId
+      ? explainModule(dataset, node.moduleId)
+      : node.level === 'file' && node.moduleId
+        ? explainFile(dataset, node.moduleId, node.entityId) ?? explainModule(dataset, node.moduleId)
+        : node.level === 'symbol'
+          ? explainNode(dataset, node.entityId)
+          : null;
 
   return (
     <section className="graph-detail">
@@ -537,7 +547,14 @@ function NodeDetail({
         {node.level === 'module' ? 'MODULE' : node.level === 'file' ? 'FILE' : 'SYMBOL'} · {node.moduleId ? moduleName(dataset, node.moduleId) : '未归属'}
       </span>
       <h3>{node.label}</h3>
-      <code className="graph-detail__code">{node.sublabel}</code>
+      {node.level === 'module' ? (
+        <code className="graph-detail__code">{node.sublabel}</code>
+      ) : (
+        <details className="graph-detail__technical">
+          <summary>技术标识</summary>
+          <code className="graph-detail__code">{node.sublabel}</code>
+        </details>
+      )}
       <div className="graph-detail__badges">
         <span className={`review-badge review-badge--${node.review.replace('_', '-')}`}>
           {REVIEW_LABELS[node.review]}
@@ -545,6 +562,7 @@ function NodeDetail({
         <span className="graph-chip">{nodeStatusLabel(node)}</span>
         {node.distributed ? <span className="graph-chip graph-chip--warn">分布式能力集合</span> : null}
       </div>
+      {explanation ? <PlainExplanationCard explanation={explanation} titleless /> : null}
       <p className="graph-detail__lede">
         {node.level === 'module'
           ? '模块层级只聚合有主归属的产品节点关系；Canvas 支撑节点不会重复计入模块。'
@@ -613,8 +631,7 @@ function NodeDetail({
           <ul>
             {fileNodes.map((candidate) => (
               <li key={candidate.id}>
-                <strong>{candidate.displayName ?? candidate.symbol}</strong>
-                <code>{candidate.symbol}</code>
+                <strong>{candidate.displayName ?? '未收录中文名的组件'}</strong>
                 <span>{reviewLabel(candidate.review)}</span>
               </li>
             ))}

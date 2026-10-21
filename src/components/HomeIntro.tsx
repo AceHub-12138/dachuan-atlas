@@ -30,7 +30,7 @@ export function HomeIntro({ onEnterNexus, dataSource }: HomeIntroProps) {
         <span className="home-hint">悬停查看星系名称</span>
       </div>
       <div className="home-meta">
-        <span>{dataSource === 'demo' ? 'P0 VISUAL PROTOTYPE' : 'P1.2 GRAPH PROJECTION'}</span>
+        <span>{dataSource === 'demo' ? 'P0 VISUAL PROTOTYPE' : 'P1.3 TRUSTED EXPLANATION'}</span>
         <i />
         <span>
           {dataSource === 'demo'
