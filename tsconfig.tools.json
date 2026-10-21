@@ -22,6 +22,8 @@
     "src/architecture/module-map.ts",
     "src/architecture/display-names.ts",
     "src/architecture/graphify-adapter.ts",
+    "src/architecture/repository-profile.ts",
+    "src/architecture/import-provenance.ts",
     "src/architecture/dataset.ts",
     "src/architecture/privacy.ts",
     "src/architecture/review-records.ts"

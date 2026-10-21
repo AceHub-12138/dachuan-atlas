@@ -1,0 +1,284 @@
+{
+  "graph": {
+    "schema_version": 1,
+    "graphify_version": "0.9.92",
+    "generated_at": "2026-10-20T00:00:00Z"
+  },
+  "nodes": [
+    {
+      "id": "n_customer_service",
+      "label": "CustomerService",
+      "source_file": "synthetic/customer/customer-service.ts",
+      "source_location": "L8",
+      "file_type": "code",
+      "_callable": false,
+      "_callable_class": true,
+      "confidence": "EXTRACTED",
+      "community": 1
+    },
+    {
+      "id": "n_customer_create",
+      "label": "createCustomer",
+      "source_file": "synthetic/customer/customer-service.ts",
+      "source_location": "L20",
+      "file_type": "code",
+      "_callable": true,
+      "_callable_class": false,
+      "confidence": "EXTRACTED",
+      "community": 1
+    },
+    {
+      "id": "n_order_service",
+      "label": "OrderService",
+      "source_file": "synthetic/orders/order-service.ts",
+      "source_location": "L7",
+      "file_type": "code",
+      "_callable": false,
+      "_callable_class": true,
+      "confidence": "EXTRACTED",
+      "community": 2
+    },
+    {
+      "id": "n_order_create",
+      "label": "createOrder",
+      "source_file": "synthetic/orders/order-service.ts",
+      "source_location": "L18",
+      "file_type": "code",
+      "_callable": true,
+      "_callable_class": false,
+      "confidence": "EXTRACTED",
+      "community": 2
+    },
+    {
+      "id": "n_orders_index",
+      "label": "index.ts",
+      "source_file": "synthetic/orders/index.ts",
+      "source_location": "L1",
+      "file_type": "code",
+      "_callable": false,
+      "_callable_class": false,
+      "confidence": "EXTRACTED",
+      "community": 2
+    },
+    {
+      "id": "n_contract_service",
+      "label": "ContractService",
+      "source_file": "synthetic/contracts/contract-service.ts",
+      "source_location": "L6",
+      "file_type": "code",
+      "_callable": false,
+      "_callable_class": true,
+      "confidence": "EXTRACTED",
+      "community": 3
+    },
+    {
+      "id": "n_contract_create",
+      "label": "createContract",
+      "source_file": "synthetic/contracts/contract-service.ts",
+      "source_location": "L16",
+      "file_type": "code",
+      "_callable": true,
+      "_callable_class": false,
+      "confidence": "EXTRACTED",
+      "community": 3
+    },
+    {
+      "id": "n_receivable_service",
+      "label": "ReceivableService",
+      "source_file": "synthetic/receivables/receivable-service.ts",
+      "source_location": "L7",
+      "file_type": "code",
+      "_callable": false,
+      "_callable_class": true,
+      "confidence": "EXTRACTED",
+      "community": 4
+    },
+    {
+      "id": "n_shipment_service",
+      "label": "ShipmentService",
+      "source_file": "synthetic/shipments/shipment-service.ts",
+      "source_location": "L9",
+      "file_type": "code",
+      "_callable": false,
+      "_callable_class": true,
+      "confidence": "EXTRACTED",
+      "community": 5
+    },
+    {
+      "id": "n_shared_id",
+      "label": "makeId",
+      "source_file": "synthetic/shared/id.ts",
+      "source_location": "L3",
+      "file_type": "code",
+      "_callable": true,
+      "_callable_class": false,
+      "confidence": "EXTRACTED",
+      "community": 9
+    },
+    {
+      "id": "n_shared_config",
+      "label": "readConfig",
+      "source_file": "synthetic/shared/config.ts",
+      "source_location": "L4",
+      "file_type": "code",
+      "_callable": true,
+      "_callable_class": false,
+      "confidence": "EXTRACTED",
+      "community": 9
+    },
+    {
+      "id": "n_external_zod",
+      "label": "zod",
+      "external": true,
+      "confidence": "EXTRACTED",
+      "community": 10
+    }
+  ],
+  "links": [
+    {
+      "source": "n_customer_service",
+      "target": "n_customer_create",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "synthetic/customer/customer-service.ts",
+      "source_location": "L12",
+      "context": "类包含创建方法"
+    },
+    {
+      "source": "n_customer_create",
+      "target": "n_shared_id",
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "synthetic/customer/customer-service.ts",
+      "source_location": "L22",
+      "context": "生成客户标识"
+    },
+    {
+      "source": "n_customer_create",
+      "target": "n_order_create",
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "synthetic/customer/customer-service.ts",
+      "source_location": "L24",
+      "context": "同步创建订单"
+    },
+    {
+      "source": "n_customer_create",
+      "target": "n_order_create",
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "synthetic/customer/customer-service.ts",
+      "source_location": "L24",
+      "context": "同步创建订单"
+    },
+    {
+      "source": "n_customer_create",
+      "target": "n_order_create",
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "synthetic/customer/customer-service.ts",
+      "source_location": "L25",
+      "context": "补建订单"
+    },
+    {
+      "source": "n_order_service",
+      "target": "n_order_create",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "synthetic/orders/order-service.ts",
+      "source_location": "L10",
+      "context": "类包含创建方法"
+    },
+    {
+      "source": "n_order_create",
+      "target": "n_contract_create",
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "synthetic/orders/order-service.ts",
+      "source_location": "L21",
+      "context": "订单生成合同"
+    },
+    {
+      "source": "n_order_create",
+      "target": "n_shipment_service",
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "synthetic/orders/order-service.ts",
+      "source_location": "L22",
+      "context": "创建发运服务"
+    },
+    {
+      "source": "n_contract_create",
+      "target": "n_receivable_service",
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "synthetic/contracts/contract-service.ts",
+      "source_location": "L18",
+      "context": "合同生成应收计划"
+    },
+    {
+      "source": "n_contract_create",
+      "target": "n_shipment_service",
+      "relation": "calls",
+      "confidence": "INFERRED",
+      "confidence_score": 0.62,
+      "source_file": "synthetic/contracts/contract-service.ts",
+      "source_location": "L19",
+      "context": "合同触发发运（推断，未验证）"
+    },
+    {
+      "source": "n_contract_create",
+      "target": "n_contract_create",
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "synthetic/contracts/contract-service.ts",
+      "source_location": "L20",
+      "context": "递归补建（自引用）"
+    },
+    {
+      "source": "n_order_create",
+      "target": "n_missing_node",
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "synthetic/orders/order-service.ts",
+      "source_location": "L23",
+      "context": "悬空引用"
+    },
+    {
+      "source": "n_shipment_service",
+      "target": "n_external_zod",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "synthetic/shipments/shipment-service.ts",
+      "source_location": "L2",
+      "context": "外部校验库"
+    },
+    {
+      "source": "n_orders_index",
+      "target": "n_order_service",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "synthetic/orders/index.ts",
+      "source_location": "L1",
+      "context": "模块导出"
+    },
+    {
+      "source": "n_customer_create",
+      "target": "n_shared_config",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "synthetic/customer/customer-service.ts",
+      "source_location": "L26",
+      "context": "读取开关"
+    },
+    {
+      "source": "n_order_service",
+      "target": "n_order_create",
+      "relation": "RENDERS",
+      "confidence": "EXTRACTED",
+      "source_file": "synthetic/orders/order-service.ts",
+      "source_location": "L11",
+      "context": "未识别关系类型"
+    }
+  ]
+}

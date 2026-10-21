@@ -1,0 +1,162 @@
+{
+  "schema": "atlas.repository-profile",
+  "schemaVersion": "1.0.0",
+  "synthetic": true,
+  "repository": {
+    "id": "crm",
+    "name": "CRM 合成验证仓库",
+    "system": "crm",
+    "workspaceLabel": "CRM"
+  },
+  "sourceLabel": "CRM 合成验证快照",
+  "modules": [
+    {
+      "id": "customer",
+      "index": "01",
+      "name": "客户档案（合成）",
+      "latin": "CUSTOMER",
+      "review": "unverified",
+      "reviewMethod": "unverified",
+      "reviewActor": "P2.0-A synthetic fixture",
+      "reviewedAt": "2026-10-21",
+      "reviewNote": "合成模块定义，仅用于验证导入管线；未经过真实 CRM 源码复核。",
+      "rule": "按 synthetic/customer/ 路径前缀归类；这是合成 fixture，不代表真实 CRM 模块。",
+      "description": "合成 fixture 中的客户创建与查询入口。",
+      "summary": "合成数据：客户档案模块示例。",
+      "responsibilities": ["创建客户并生成标识。", "读取共享配置开关。"],
+      "gaps": ["没有真实 CRM 源码证据。"],
+      "notes": ["路径与符号均为虚构。"],
+      "primaryPrefixes": ["synthetic/customer/"],
+      "primaryFiles": [],
+      "supportingFiles": [],
+      "evidence": [
+        {
+          "file": "synthetic/customer/customer-service.ts",
+          "line": 8,
+          "symbol": "CustomerService",
+          "note": "合成客户服务类"
+        }
+      ]
+    },
+    {
+      "id": "orders",
+      "index": "02",
+      "name": "订单（合成）",
+      "latin": "ORDERS",
+      "review": "unverified",
+      "reviewMethod": "unverified",
+      "reviewActor": "P2.0-A synthetic fixture",
+      "reviewedAt": "2026-10-21",
+      "reviewNote": "合成模块定义，仅用于验证导入管线。",
+      "rule": "按 synthetic/orders/ 路径前缀归类；这是合成 fixture。",
+      "description": "合成 fixture 中的订单创建与导出入口。",
+      "summary": "合成数据：订单模块示例。",
+      "responsibilities": ["创建订单。", "导出订单服务。"],
+      "gaps": ["没有真实订单模型或数据库证据。"],
+      "notes": ["路径与符号均为虚构。"],
+      "primaryPrefixes": ["synthetic/orders/"],
+      "primaryFiles": [],
+      "supportingFiles": [],
+      "evidence": [
+        {
+          "file": "synthetic/orders/order-service.ts",
+          "line": 7,
+          "symbol": "OrderService",
+          "note": "合成订单服务类"
+        }
+      ]
+    },
+    {
+      "id": "contracts",
+      "index": "03",
+      "name": "合同（合成）",
+      "latin": "CONTRACTS",
+      "review": "unverified",
+      "reviewMethod": "unverified",
+      "reviewActor": "P2.0-A synthetic fixture",
+      "reviewedAt": "2026-10-21",
+      "reviewNote": "合成模块定义，仅用于验证导入管线。",
+      "rule": "按 synthetic/contracts/ 路径前缀归类；这是合成 fixture。",
+      "description": "合成 fixture 中的合同创建入口。",
+      "summary": "合成数据：合同模块示例。",
+      "responsibilities": ["创建合同。", "触发应收与发运。"],
+      "gaps": ["没有真实合同条款或接口证据。"],
+      "notes": ["路径与符号均为虚构。"],
+      "primaryPrefixes": ["synthetic/contracts/"],
+      "primaryFiles": [],
+      "supportingFiles": [],
+      "evidence": [
+        {
+          "file": "synthetic/contracts/contract-service.ts",
+          "line": 6,
+          "symbol": "ContractService",
+          "note": "合成合同服务类"
+        }
+      ]
+    },
+    {
+      "id": "receivables",
+      "index": "04",
+      "name": "应收（合成）",
+      "latin": "RECEIVABLES",
+      "review": "unverified",
+      "reviewMethod": "unverified",
+      "reviewActor": "P2.0-A synthetic fixture",
+      "reviewedAt": "2026-10-21",
+      "reviewNote": "合成模块定义，仅用于验证导入管线。",
+      "rule": "按 synthetic/receivables/ 路径前缀归类；这是合成 fixture。",
+      "description": "合成 fixture 中的应收计划入口。",
+      "summary": "合成数据：应收模块示例。",
+      "responsibilities": ["生成应收计划。"],
+      "gaps": ["没有真实金额、账期或回款数据。"],
+      "notes": ["路径与符号均为虚构。"],
+      "primaryPrefixes": ["synthetic/receivables/"],
+      "primaryFiles": [],
+      "supportingFiles": [],
+      "evidence": [
+        {
+          "file": "synthetic/receivables/receivable-service.ts",
+          "line": 7,
+          "symbol": "ReceivableService",
+          "note": "合成应收服务类"
+        }
+      ]
+    },
+    {
+      "id": "shipments",
+      "index": "05",
+      "name": "发运（合成）",
+      "latin": "SHIPMENTS",
+      "review": "unverified",
+      "reviewMethod": "unverified",
+      "reviewActor": "P2.0-A synthetic fixture",
+      "reviewedAt": "2026-10-21",
+      "reviewNote": "合成模块定义，仅用于验证导入管线。",
+      "rule": "按 synthetic/shipments/ 路径前缀归类；这是合成 fixture。",
+      "description": "合成 fixture 中的发运计划入口。",
+      "summary": "合成数据：发运模块示例。",
+      "responsibilities": ["创建发运计划。", "使用外部 schema 校验。"],
+      "gaps": ["没有真实物流或仓储证据。"],
+      "notes": ["路径与符号均为虚构。"],
+      "primaryPrefixes": ["synthetic/shipments/"],
+      "primaryFiles": [],
+      "supportingFiles": [],
+      "evidence": [
+        {
+          "file": "synthetic/shipments/shipment-service.ts",
+          "line": 9,
+          "symbol": "ShipmentService",
+          "note": "合成发运服务类"
+        }
+      ]
+    }
+  ],
+  "coverageNotes": [
+    "合成 Graphify 产物没有运行时 trace、日志、协议测试或集成测试；所有关系保持 runtimeScope=unknown。",
+    "synthetic/shared/ 与外部包节点没有模块规则依据，保持未分类。",
+    "本 profile 的模块名称与路径均为虚构，不代表真实 CRM 的领域划分。"
+  ],
+  "snapshotNotes": [
+    "合成数据：路径、符号、模块与提交均为虚构，仅用于 P2.0-A 导入管线测试。"
+  ]
+}

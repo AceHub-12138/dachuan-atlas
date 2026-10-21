@@ -18,6 +18,8 @@ import {
   type AtlasNode,
   type AtlasRelation,
   type AtlasRelationType,
+  type AtlasRepositoryRecord,
+  type AtlasReview,
   type AtlasReviewMethod,
   type AtlasSnapshot,
   type AtlasSnapshotStats,
@@ -25,7 +27,6 @@ import {
   type AtlasUnresolvedCall,
 } from './schema.ts';
 import {
-  isCommitSha,
   isRepoFileReference,
   looksLikePathDerivedLabel,
   makeLocator,
@@ -41,8 +42,13 @@ import {
   MODULE_DEFINITIONS,
   moduleReviewNote,
 } from './module-map.ts';
-import { annotationFor, labelBase } from './display-names.ts';
+import { annotationFor, labelBase, type DisplayAnnotation } from './display-names.ts';
 import { AI_REVIEW_ACTOR, AI_REVIEW_DATE, AI_REVIEWED_RELATION_MAP } from './review-records.ts';
+import {
+  readSnapshotManifest,
+  type SnapshotManifestProvenance,
+} from './import-provenance.ts';
+import type { RepositoryProfile } from './repository-profile.ts';
 
 /**
  * Graphify → ATLAS 适配器。
@@ -68,21 +74,19 @@ export interface AdaptGraphifyOptions {
   repositoryName?: string;
   commitOverride?: string;
   expectedCommit?: string;
+  expectedRepositoryId?: string;
   generatedAt?: string | null;
+  scannedAt?: string | null;
   importedAt?: string;
   manifestVerification?: GraphifyManifestVerification | null;
+  /** 调用方完成三件套来源核对后传入；未传时按清单校验结果推导。 */
+  importStatusOverride?: 'complete' | 'partial';
 }
 
 export interface AdaptGraphifyInput {
   graph: unknown;
   manifest?: unknown;
   options?: AdaptGraphifyOptions;
-}
-
-interface RawManifest {
-  commit: string | null;
-  fileCount: number | null;
-  byteCount: number | null;
 }
 
 const COVERAGE_NOTES = [
@@ -94,6 +98,51 @@ const COVERAGE_NOTES = [
   'Community 编号只保留为原图字段，不参与业务模块判定。',
   '“没有边”不等于“不存在调用”；本数据集不据此断言关系不存在。',
 ];
+
+/**
+ * NEXUS 的导入 profile。CRM / Electron 必须提供自己的 profile，不能复用
+ * 这里的四个模块、中文注释或关系复核清单。
+ */
+export const NEXUS_REPOSITORY_PROFILE: RepositoryProfile = {
+  schema: 'atlas.repository-profile',
+  schemaVersion: '1.0.0',
+  synthetic: false,
+  repository: {
+    id: 'nexus',
+    name: 'NEXUS 可视化大屏',
+    system: 'nexus',
+    workspaceLabel: 'NEXUS',
+  },
+  sourceLabel: 'NEXUS 本地历史快照',
+  modules: MODULE_DEFINITIONS,
+  moduleOrder: MODULE_ORDER,
+  coverageNotes: COVERAGE_NOTES,
+  snapshotNotes: [],
+};
+
+function moduleRecordReview(
+  definition: (typeof MODULE_DEFINITIONS)[number],
+  note: string,
+  evidence: AtlasEvidenceRef[],
+  profile: RepositoryProfile,
+): AtlasReview {
+  if (profile.repository.system === 'nexus') {
+    return aiReview(note, evidence, {
+      actor: AI_REVIEW_ACTOR,
+      reviewedAt: AI_REVIEW_DATE,
+      status: definition.review,
+    });
+  }
+  return {
+    status: definition.review,
+    method: definition.reviewMethod ?? 'unverified',
+    actor: definition.reviewActor ?? null,
+    reviewer: definition.reviewActor ?? null,
+    reviewedAt: definition.reviewedAt ?? null,
+    note: definition.reviewNote ?? note,
+    evidence,
+  };
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -130,17 +179,6 @@ function mapEvidenceType(value: unknown): AtlasEvidenceConfidence {
 
 function asConfidence(value: unknown): number | null {
   return typeof value === 'number' && Number.isFinite(value) ? value : null;
-}
-
-function readManifest(raw: unknown): RawManifest | null {
-  if (raw === undefined || raw === null) return null;
-  if (!isRecord(raw)) {
-    throw new AtlasDataError('GRAPHIFY_MANIFEST_INVALID', 'snapshot-manifest.json 结构无效：顶层必须是对象。');
-  }
-  const commit = typeof raw.commit === 'string' && isCommitSha(raw.commit) ? raw.commit : null;
-  const fileCount = typeof raw.file_count === 'number' && raw.file_count >= 0 ? raw.file_count : null;
-  const byteCount = typeof raw.byte_count === 'number' && raw.byte_count >= 0 ? raw.byte_count : null;
-  return { commit, fileCount, byteCount };
 }
 
 function validateEnvelope(graph: unknown): { nodes: unknown[]; links: unknown[]; graphifyVersion: string; graphifySchemaVersion: number } {
@@ -262,12 +300,39 @@ function reviewMethodForRelation(evidenceType: AtlasEvidenceConfidence): AtlasRe
   return 'unverified';
 }
 
+/**
+ * NEXUS 兼容入口。P1.0–P1.4 的调用方与测试继续使用这个函数，
+ * 输出语义不变；CRM / Electron 使用 adaptGraphifyWithProfile。
+ */
 export function adaptGraphify(input: AdaptGraphifyInput): AtlasDataset {
+  return adaptGraphifyWithProfile(input, NEXUS_REPOSITORY_PROFILE);
+}
+
+export function adaptGraphifyWithProfile(
+  input: AdaptGraphifyInput,
+  profile: RepositoryProfile,
+): AtlasDataset {
   const options = input.options ?? {};
-  const repositoryId = options.repositoryId ?? 'nexus';
-  const repositoryName = options.repositoryName ?? 'NEXUS 可视化大屏';
+  const repositoryId = options.repositoryId ?? profile.repository.id;
+  if (repositoryId !== profile.repository.id) {
+    throw new AtlasDataError(
+      'REPOSITORY_PROFILE_REPOSITORY_MISMATCH',
+      `适配器仓库 ID=${repositoryId} 与 profile.repository.id=${profile.repository.id} 不一致。`,
+    );
+  }
+  const repositoryName = options.repositoryName ?? profile.repository.name;
   const importedAt = options.importedAt ?? new Date().toISOString();
-  const manifest = readManifest(input.manifest);
+  const manifest: SnapshotManifestProvenance | null =
+    input.manifest === undefined || input.manifest === null
+      ? null
+      : readSnapshotManifest(input.manifest, {
+          // 只有调用方显式声明期望仓库时才强制清单身份；NEXUS 旧导入
+          // 保持原有兼容行为，CRM CLI 则必须传入 expectedRepositoryId。
+          expectedRepositoryId: options.expectedRepositoryId,
+          expectedSystem: options.expectedRepositoryId
+            ? profile.repository.system
+            : undefined,
+        });
   const manifestCommit = manifest?.commit ?? null;
 
   if (options.expectedCommit && manifestCommit && options.expectedCommit !== manifestCommit) {
@@ -352,21 +417,26 @@ export function adaptGraphify(input: AdaptGraphifyInput): AtlasDataset {
     }
 
     const line = parseSourceLine(rawNode.source_location);
-    const classification = classifyNode({
-      sourceFile,
-      external,
-      fileType,
-      label,
-      callable: asBoolean(rawNode._callable),
-      callableClass: asBoolean(rawNode._callable_class),
-    });
+    const classification = classifyNode(
+      {
+        sourceFile,
+        external,
+        fileType,
+        label,
+        callable: asBoolean(rawNode._callable),
+        callableClass: asBoolean(rawNode._callable_class),
+      },
+      profile.modules,
+    );
 
     const logicalId = sensitive
       ? `${repositoryId}:external#redacted-${index}`
       : buildLogicalId(repositoryId, sourceFile, label, rawId, line, usedLogicalIds);
     usedLogicalIds.add(logicalId);
 
-    const annotation = annotationFor(sourceFile, label);
+    // 中文名称与职责只来自 NEXUS 的人工核对清单；CRM 不做机器翻译或自动补全。
+    const annotation: DisplayAnnotation | null =
+      profile.repository.system === 'nexus' ? annotationFor(sourceFile, label) : null;
     const nodeEvidence = buildEvidence(repositoryId, commit, sourceFile, line, label);
     const review = annotation
       ? aiReview(`${annotation.name}：${annotation.note}`, nodeEvidence)
@@ -386,7 +456,7 @@ export function adaptGraphify(input: AdaptGraphifyInput): AtlasDataset {
       id: logicalId,
       sourceId: sensitive ? `redacted-${index}` : rawId,
       repository: repositoryId,
-      system: 'nexus',
+      system: profile.repository.system,
       kind: classification.kind,
       symbol: label,
       symbolType: classification.symbolType,
@@ -467,7 +537,8 @@ export function adaptGraphify(input: AdaptGraphifyInput): AtlasDataset {
     const fromNode = nodeById.get(from);
     const toNode = nodeById.get(to);
     const verifiedKey = `${fromNode?.symbol ?? ''}|${type}|${toNode?.symbol ?? ''}|${evidenceFile ?? ''}`;
-    const verificationNote = AI_REVIEWED_RELATION_MAP.get(verifiedKey);
+    const verificationNote =
+      profile.repository.system === 'nexus' ? AI_REVIEWED_RELATION_MAP.get(verifiedKey) : undefined;
 
     const baseId = `${from}->${to}:${type}`;
     const seen = relationIdCounts.get(baseId) ?? 0;
@@ -570,51 +641,68 @@ export function adaptGraphify(input: AdaptGraphifyInput): AtlasDataset {
     atlasSchemaVersion: ATLAS_SCHEMA_VERSION,
     history: true,
     importStatus:
-      manifestStatus?.status === 'verified' && commit !== 'unknown' ? 'complete' : 'partial',
+      options.importStatusOverride ??
+      (manifestStatus?.status === 'verified' && commit !== 'unknown' ? 'complete' : 'partial'),
     stats: snapshotStats,
     manifest: manifestStatus,
     notes: [
-      `历史快照，仅代表提交 ${commit === 'unknown' ? '（未提供）' : commit}；不代表 NEXUS 当前工作区。`,
+      `历史快照，仅代表提交 ${commit === 'unknown' ? '（未提供）' : commit}；不代表 ${profile.repository.workspaceLabel} 当前工作区。`,
       '关系默认“待核实”；只有列入人工核对清单的关系标记为“已核实”。',
       'Graphify Community 编号只作原图参考，不参与模块判定。',
       manifestStatus?.status === 'verified'
         ? `snapshot-manifest.json 已逐文件校验：${manifestStatus.verifiedFiles}/${manifestStatus.fileCount}。`
         : '未完成 snapshot-manifest.json 逐文件校验；提交与文件完整性仍需复核。',
+      ...(profile.synthetic
+        ? ['合成数据：仅用于导入管线验证，不代表真实仓库架构或当前工作区。']
+        : []),
+      ...profile.snapshotNotes,
     ],
   };
 
-  const modules = buildModules(nodes, relations, repositoryId, commit).sort(
-    (a, b) => MODULE_ORDER.indexOf(a.id) - MODULE_ORDER.indexOf(b.id),
-  );
-  const systems: AtlasSystemRecord[] = [
-    {
-      id: 'nexus',
-      name: 'NEXUS 可视化大屏',
+  const modules = buildModules(nodes, relations, repositoryId, commit, profile).sort((a, b) => {
+    const aIndex = profile.moduleOrder.indexOf(a.id);
+    const bIndex = profile.moduleOrder.indexOf(b.id);
+    return (aIndex === -1 ? 999 : aIndex) - (bIndex === -1 ? 999 : bIndex);
+  });
+  const systemNames: Record<'nexus' | 'crm' | 'electron', string> = {
+    nexus: 'NEXUS 可视化大屏',
+    crm: 'CRM / ERP 管理系统',
+    electron: 'Electron 桌面客户端',
+  };
+  const systems: AtlasSystemRecord[] = (['nexus', 'crm', 'electron'] as const).map((systemId) => {
+    if (systemId !== profile.repository.system) {
+      return {
+        id: systemId,
+        name: systemNames[systemId],
+        dataStatus: 'not_connected',
+        source: 'graphify',
+        snapshotId: null,
+        note:
+          profile.repository.system === 'nexus'
+            ? '尚未接入真实架构数据；P1.0 未扫描该仓库。'
+            : `尚未接入真实架构数据；本轮只导入 ${profile.repository.name} 的本地历史快照，未扫描该仓库。`,
+      };
+    }
+    let note: string;
+    if (profile.repository.system === 'nexus') {
+      note =
+        commit === 'unknown'
+          ? '已导入 Graphify 历史快照；提交信息缺失，不能称为当前实时架构。'
+          : `已接入 NEXUS 历史快照 ${shortCommit(commit)}（${generatedAt ?? '生成时间未知'}）；不代表当前工作区。`;
+    } else if (profile.synthetic) {
+      note = `已接入 ${profile.repository.name} 合成历史快照 ${shortCommit(commit)}（${generatedAt ?? '生成时间未知'}）；仅用于管线验证，不代表真实 ${profile.repository.workspaceLabel} 架构。`;
+    } else {
+      note = `已接入 ${profile.repository.name} 历史快照 ${shortCommit(commit)}（${generatedAt ?? '生成时间未知'}）；不代表当前工作区。`;
+    }
+    return {
+      id: systemId,
+      name: systemNames[systemId],
       dataStatus: 'connected',
       source: 'graphify',
       snapshotId,
-      note:
-        commit === 'unknown'
-          ? '已导入 Graphify 历史快照；提交信息缺失，不能称为当前实时架构。'
-          : `已接入 NEXUS 历史快照 ${shortCommit(commit)}（${generatedAt ?? '生成时间未知'}）；不代表当前工作区。`,
-    },
-    {
-      id: 'crm',
-      name: 'CRM / ERP 管理系统',
-      dataStatus: 'not_connected',
-      source: 'graphify',
-      snapshotId: null,
-      note: '尚未接入真实架构数据；P1.0 未扫描该仓库。',
-    },
-    {
-      id: 'electron',
-      name: 'Electron 桌面客户端',
-      dataStatus: 'not_connected',
-      source: 'graphify',
-      snapshotId: null,
-      note: '尚未接入真实架构数据；P1.0 未扫描该仓库。',
-    },
-  ];
+      note,
+    };
+  });
 
   const productNodes = nodes.filter((node) => node.scope === 'product');
   const modulesAssigned = productNodes.filter((node) => node.moduleId !== null).length;
@@ -715,12 +803,37 @@ export function adaptGraphify(input: AdaptGraphifyInput): AtlasDataset {
     message: `${annotatedNodes} 个节点有中文名称与职责注释；其余保留英文符号名，未做机器翻译。`,
     count: annotatedNodes,
   });
-  issues.push({
-    code: 'GRAPHIFY_MODULE_COVERAGE',
-    severity: 'info',
-    message: `${modulesAssigned} 个产品节点归入模块，${modulesUnassigned} 个产品节点未归类（应用外壳或数据文件）。`,
-    count: modulesAssigned,
-  });
+  if (!profile.modules.length) {
+    issues.push({
+      code: 'GRAPHIFY_MODULE_PROFILE_EMPTY',
+      severity: 'warning',
+      message: '仓库 profile 没有模块定义；全部节点保持未分类，未为了星图完整而强行归类。',
+      count: 1,
+    });
+  }
+  if (profile.synthetic) {
+    issues.push({
+      code: 'IMPORT_SYNTHETIC_FIXTURE',
+      severity: 'info',
+      message: '本数据集来自合成验证 profile；不能作为真实仓库架构或生产证据。',
+      count: 1,
+    });
+  }
+  issues.push(
+    profile.repository.system === 'nexus'
+      ? {
+          code: 'GRAPHIFY_MODULE_COVERAGE',
+          severity: 'info',
+          message: `${modulesAssigned} 个产品节点归入模块，${modulesUnassigned} 个产品节点未归类（应用外壳或数据文件）。`,
+          count: modulesAssigned,
+        }
+      : {
+          code: 'GRAPHIFY_MODULE_UNCLASSIFIED',
+          severity: 'info',
+          message: `${modulesAssigned} 个产品节点按 ${profile.repository.name} 的路径/职责规则归类，${modulesUnassigned} 个节点保持未分类（没有足够依据，不强行归类）。`,
+          count: modulesAssigned,
+        },
+  );
 
   const diagnostics: AtlasDiagnostics = {
     issues,
@@ -763,8 +876,31 @@ export function adaptGraphify(input: AdaptGraphifyInput): AtlasDataset {
           relation.review.method !== 'graphify-inferred',
       ).length,
     },
-    coverageNotes: COVERAGE_NOTES,
+    coverageNotes: profile.coverageNotes,
   };
+
+  const repositories: AtlasRepositoryRecord[] = [
+    {
+      id: repositoryId,
+      name: repositoryName,
+      system: profile.repository.system,
+      snapshots: [
+        {
+          snapshotId,
+          snapshotKey: `${repositoryId}@${snapshot.commitShort}@${generatedAt ?? 'unknown'}`,
+          commit,
+          commitShort: snapshot.commitShort,
+          scannedAt: options.scannedAt ?? manifest?.scannedAt ?? null,
+          generatedAt,
+          importedAt,
+          graphifyVersion,
+          nodeCount: nodes.length,
+          relationCount: relations.length,
+          history: true,
+        },
+      ],
+    },
+  ];
 
   return {
     schemaId: 'atlas.architecture',
@@ -772,7 +908,7 @@ export function adaptGraphify(input: AdaptGraphifyInput): AtlasDataset {
     generatedAt: importedAt,
     source: {
       kind: 'graphify',
-      label: `NEXUS 本地历史快照 · ${shortCommit(commit)}`,
+      label: `${profile.sourceLabel} · ${shortCommit(commit)}`,
       detail:
         commit === 'unknown'
           ? '本地导入的 Graphify 图谱；提交信息缺失，不代表当前架构。'
@@ -787,6 +923,7 @@ export function adaptGraphify(input: AdaptGraphifyInput): AtlasDataset {
     nodes: sortBy(nodes, (node) => node.id),
     relations: sortBy(relations, (relation) => relation.id),
     flows: [],
+    repositories,
     diagnostics,
   };
 }
@@ -796,15 +933,16 @@ function buildModules(
   relations: AtlasRelation[],
   repositoryId: string,
   commit: string,
+  profile: RepositoryProfile,
 ): AtlasModuleRecord[] {
   const nodeById = new Map(nodes.map((node) => [node.id, node]));
   const product = nodes.filter((node) => node.scope === 'product');
 
-  return MODULE_DEFINITIONS.map((definition) => {
+  return profile.modules.map((definition) => {
     const members = product.filter((node) => node.moduleIds.includes(definition.id));
     const primaryMembers = members.filter((node) => node.moduleId === definition.id);
     const otherModuleIds = new Set<AtlasModuleId>(
-      MODULE_DEFINITIONS.filter((module) => module.id !== definition.id).map((module) => module.id),
+      profile.modules.filter((module) => module.id !== definition.id).map((module) => module.id),
     );
 
     let productRelations = 0;
@@ -852,7 +990,8 @@ function buildModules(
     };
 
     const keyComponents: AtlasModuleComponent[] = definition.evidence.slice(0, 5).map((seed) => {
-      const annotation = annotationFor(seed.file, seed.symbol);
+      const annotation =
+        profile.repository.system === 'nexus' ? annotationFor(seed.file, seed.symbol) : null;
       const evidenceRef: AtlasEvidenceRef = {
         repository: repositoryId,
         commit,
@@ -867,7 +1006,12 @@ function buildModules(
         line: seed.line,
         name: annotation?.name ?? seed.symbol,
         responsibility: annotation?.responsibility ?? seed.note,
-        review: aiReview(annotation?.note ?? seed.note, [evidenceRef]),
+        review: moduleRecordReview(
+          definition,
+          annotation?.note ?? seed.note,
+          [evidenceRef],
+          profile,
+        ),
       };
     });
 
@@ -886,12 +1030,15 @@ function buildModules(
       name: definition.name,
       latin: definition.latin,
       repository: repositoryId,
-      system: 'nexus',
+      system: profile.repository.system,
       review: definition.review,
-      reviewRecord: aiReview(
-        moduleReviewNote(definition),
+      reviewRecord: moduleRecordReview(
+        definition,
+        profile.repository.system === 'nexus'
+          ? moduleReviewNote(definition)
+          : (definition.reviewNote ?? '模块组成来自本地 profile；未提供独立复核记录。'),
         compositionEvidence,
-        { actor: AI_REVIEW_ACTOR, reviewedAt: AI_REVIEW_DATE, status: definition.review },
+        profile,
       ),
       summary: definition.summary,
       responsibilities: definition.responsibilities,
@@ -899,7 +1046,12 @@ function buildModules(
       gaps: definition.gaps,
       rule: definition.rule,
       description: definition.description,
-      notes: [...definition.notes, moduleReviewNote(definition)],
+      notes: [
+        ...definition.notes,
+        profile.repository.system === 'nexus'
+          ? moduleReviewNote(definition)
+          : (definition.reviewNote ?? '模块组成来自本地 profile；未提供独立复核记录。'),
+      ],
       evidence: [
         ...new Set([
           ...definition.evidence.map((seed) => seed.file),

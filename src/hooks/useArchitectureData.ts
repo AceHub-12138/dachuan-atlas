@@ -1,7 +1,10 @@
 import { useCallback, useState } from 'react';
 import { buildDemoDataset } from '../architecture/demo-dataset';
 import { serializeAtlasDataset } from '../architecture/dataset';
-import { importArchitectureFiles } from '../architecture/import-package';
+import {
+  assertSupportedUiDataset,
+  importArchitectureFiles,
+} from '../architecture/import-package';
 import { AtlasDataError, type AtlasDataset } from '../architecture/schema.ts';
 
 export type ArchitectureSource = 'demo' | 'nexus-snapshot';
@@ -93,6 +96,7 @@ export function useArchitectureData(): ArchitectureDataState {
         files.map(async (file) => ({ name: file.name, text: await file.text() })),
       );
       const imported = importArchitectureFiles(payloads);
+      assertSupportedUiDataset(imported.dataset);
       setImportedDataset(imported.dataset);
       setDataset(imported.dataset);
       setSourceState('nexus-snapshot');

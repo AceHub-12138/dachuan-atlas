@@ -1,0 +1,229 @@
+{
+  "generatedAt": "2026-10-21T07:13:24.836Z",
+  "environment": {
+    "platform": "darwin",
+    "node": "v24.21.0",
+    "usesRealCrmData": false,
+    "dataSource": "tests/fixtures/crm-synthetic"
+  },
+  "p14Seal": {
+    "status": "pass",
+    "backupDirectoryExists": true,
+    "bundle": {
+      "file": "atlas-p14-final-20261021.bundle",
+      "sha256": "79bc9a8d2280f6b1cb70ebf446593f25d8d0835eac1dce9ff111a9786314ac03",
+      "expectedSha256": "79bc9a8d2280f6b1cb70ebf446593f25d8d0835eac1dce9ff111a9786314ac03",
+      "match": true
+    },
+    "bundleRef": "ddc74c1d5df5cc0d5e5937b7ca12a0c59e92c06b",
+    "refsMatch": true,
+    "bundleVerify": {
+      "code": 0,
+      "output": "~/Documents/DACHUAN-ATLAS-private-backups/p14-final-20261021/atlas-p14-final-20261021.bundle is okay\n"
+    },
+    "postBundleCommits": {
+      "from": "ddc74c1d5df5cc0d5e5937b7ca12a0c59e92c06b",
+      "to": "6b9e9e9",
+      "commits": [
+        "6b9e9e9 P1.4: index regression screenshot",
+        "f65e8c1 P1.4: record final bundle audit and backup report"
+      ],
+      "files": [
+        "README.md",
+        "docs/P1.4-BACKUP-REPORT.md",
+        "docs/architecture/p1.4-final-bundle-audit.json",
+        "docs/screenshots/README.md"
+      ],
+      "docsOnly": true
+    },
+    "dataCopy": {
+      "files": [
+        {
+          "file": "nexus/explanations/module-explanations.json",
+          "sha256": "a95b0d10e517426a7373fbcbfc7c3e2c12f052143aed5c4fb75296ceb090e8e4",
+          "expected": "a95b0d10e517426a7373fbcbfc7c3e2c12f052143aed5c4fb75296ceb090e8e4",
+          "match": true
+        },
+        {
+          "file": "nexus/flows/voice-request-to-overlay.flows.json",
+          "sha256": "e8d7a006c69007fca3d71793ce6d477bc0a0bf64dd2643f58c284cd8abef9f69",
+          "expected": "e8d7a006c69007fca3d71793ce6d477bc0a0bf64dd2643f58c284cd8abef9f69",
+          "match": true
+        },
+        {
+          "file": "nexus/nexus-2026-10-20-2584284.atlas.json",
+          "sha256": "bb7774ac1413fd31150afecad3563ed38ac6766346fe2e30269dc97bc42f0f35",
+          "expected": "bb7774ac1413fd31150afecad3563ed38ac6766346fe2e30269dc97bc42f0f35",
+          "match": true
+        }
+      ],
+      "allMatch": true
+    },
+    "p13Bundle": {
+      "file": "atlas-p13-final-20261021.bundle",
+      "sha256": "a4b6561e1b84507e51684717d90d000c8d323c5021f28504208812fd5b28784a",
+      "expectedSha256": "a4b6561e1b84507e51684717d90d000c8d323c5021f28504208812fd5b28784a",
+      "match": true
+    },
+    "workingTree": {
+      "branch": "main",
+      "head": "6b9e9e967f3435d97c9e48d051729918e5fc3350",
+      "status": "dirty"
+    },
+    "windowsAcceptance": "not_verified",
+    "offMachineBackup": "not_verified",
+    "audit": {
+      "bundleSha256": "79bc9a8d2280f6b1cb70ebf446593f25d8d0835eac1dce9ff111a9786314ac03",
+      "bundleBytes": 130116142,
+      "expectedCommit": "ddc74c1d5df5cc0d5e5937b7ca12a0c59e92c06b",
+      "shaMatch": true,
+      "commitMatch": true
+    }
+  },
+  "scenarios": {
+    "validImport": {
+      "status": "pass",
+      "exitCode": 0,
+      "outputExists": true,
+      "reportExists": true,
+      "counts": {
+        "nodes": 12,
+        "relations": 14,
+        "modules": 5,
+        "modulesAssigned": 9,
+        "modulesUnassigned": 2
+      },
+      "snapshot": {
+        "repository": "crm",
+        "commit": "cafebabecafebabecafebabecafebabecafebabe",
+        "snapshotKey": "crm@cafebab@2026-10-20",
+        "importStatus": "complete"
+      },
+      "runtime": {
+        "runtimeVerified": 0,
+        "unknownRuntime": 14
+      },
+      "roundtripParsed": true,
+      "privacy": {
+        "status": "pass",
+        "findings": [],
+        "absolutePathCount": 0,
+        "credentialFieldCount": 0,
+        "internalSymbolCount": 11
+      },
+      "stdout": "[P2.0-A] 来源核对\n  仓库: crm / CRM 合成验证仓库（合成验证）\n  提交: cafebabecafebabecafebabecafebabecafebabe（来源 manifest）\n  扫描: 2026-10-19T09:30:00Z / 生成: 2026-10-20\n  清单: 8/8 文件通过 SHA-256，2444 bytes\n[P2.0-A] 转换结果\n  节点 12 / 关系 14 / 模块 5\n  模块归属 9 / 未分类 2\n  runtimeVerified 0 / runtimeScope=unknown 14\n  导入状态: complete\n  隐私体检: pass\n[P2.0-A] 输出\n  out.atlas.json (39.7 KB, sha256 f2aaaf1c9365…)\n  import-report.json\n  重新解析校验: 通过（12 节点 / 14 关系）\n",
+      "stderr": ""
+    },
+    "missingManifest": {
+      "status": "pass",
+      "strict": {
+        "exitCode": 1,
+        "outputExists": false
+      },
+      "partial": {
+        "exitCode": 0,
+        "outputExists": true,
+        "importStatus": "partial",
+        "commit": "cafebabecafebabecafebabecafebabecafebabe"
+      },
+      "stdout": "[P2.0-A] 警告: 提交只出现在 GRAPH_REPORT.md，未与 snapshot-manifest 的哈希绑定；只能 partial。\n[P2.0-A] 警告: 缺少 snapshot-manifest.json；无法验证源文件完整性与清单提交。\n[P2.0-A] 警告: 仓库身份只出现在 GRAPH_REPORT.md，未与清单绑定；只能 partial。\n[P2.0-A] 来源核对\n  仓库: crm / CRM 合成验证仓库（合成验证）\n  提交: cafebabecafebabecafebabecafebabecafebabe（来源 report）\n  扫描: 2026-10-19T09:30:00Z / 生成: 2026-10-20\n  清单: 未提供\n[P2.0-A] 转换结果\n  节点 12 / 关系 14 / 模块 5\n  模块归属 9 / 未分类 2\n  runtimeVerified 0 / runtimeScope=unknown 14\n  导入状态: partial\n  隐私体检: pass\n[P2.0-A] 输出\n  out.atlas.json (39.8 KB, sha256 48d89cd01415…)\n  import-report.json\n  重新解析校验: 通过（12 节点 / 14 关系）\n",
+      "stderr": "\n[P2.0-A] CRM 导入失败: 缺少 snapshot-manifest.json。没有清单就无法验证提交与逐文件完整性；如只做结构转换，请加 --allow-partial。\n"
+    },
+    "invalidCommitSha": {
+      "status": "pass",
+      "strict": {
+        "exitCode": 1,
+        "outputExists": false
+      },
+      "partial": {
+        "exitCode": 1,
+        "outputExists": false
+      },
+      "strictStderr": "\n[P2.0-A] CRM 导入失败: snapshot-manifest.json 的 commit 必须是完整 40 位十六进制提交 SHA；短 SHA 或任意字符串不能作为历史事实。\n",
+      "partialStderr": "\n[P2.0-A] CRM 导入失败: snapshot-manifest.json 的 commit 必须是完整 40 位十六进制提交 SHA；短 SHA 或任意字符串不能作为历史事实。\n"
+    },
+    "tamperedFileHash": {
+      "status": "pass",
+      "strict": {
+        "exitCode": 1,
+        "outputExists": false
+      },
+      "partial": {
+        "exitCode": 0,
+        "outputExists": true,
+        "importStatus": "partial",
+        "manifestStatus": "unverified"
+      },
+      "strictStderr": "\n[P2.0-A] CRM 导入失败: snapshot-manifest 校验失败：SHA-256 不匹配 1 个；byte_count 声明 2444，实测 2457。如只做结构转换，请加 --allow-partial。\n"
+    },
+    "missingReport": {
+      "status": "pass",
+      "strict": {
+        "exitCode": 1,
+        "outputExists": false
+      },
+      "partial": {
+        "exitCode": 0,
+        "outputExists": true,
+        "importStatus": "partial"
+      },
+      "strictStderr": "\n[P2.0-A] CRM 导入失败: 缺少 GRAPH_REPORT.md。没有报告就无法交叉核对生成时间与扫描记录；如只做结构转换，请加 --allow-partial。\n"
+    },
+    "repositoryMismatch": {
+      "status": "pass",
+      "strict": {
+        "exitCode": 1,
+        "outputExists": false
+      },
+      "partial": {
+        "exitCode": 1,
+        "outputExists": false
+      },
+      "strictStderr": "\n[P2.0-A] CRM 导入失败: snapshot-manifest 声明仓库 nexus，期望 crm；拒绝把不同仓库的产物混入。\n"
+    },
+    "exportReimportAndDataValidation": {
+      "status": "pass",
+      "reimported": true,
+      "duplicateRelationIdRejected": true,
+      "unknownModuleRejected": true
+    }
+  },
+  "nexusIsolation": {
+    "status": "pass",
+    "crmFailureExitCode": 1,
+    "crmFailureWroteOutput": false,
+    "nexusSha256Before": "bb7774ac1413fd31150afecad3563ed38ac6766346fe2e30269dc97bc42f0f35",
+    "nexusSha256After": "bb7774ac1413fd31150afecad3563ed38ac6766346fe2e30269dc97bc42f0f35",
+    "nexusUnchanged": true,
+    "nexusCounts": {
+      "nodes": 1390,
+      "relations": 3170,
+      "modules": 4
+    }
+  },
+  "security": {
+    "status": "pass",
+    "publicSnapshotFiles": 0,
+    "outputContainsAbsolutePath": false,
+    "privacy": {
+      "status": "pass",
+      "findings": [],
+      "absolutePathCount": 0,
+      "credentialFieldCount": 0,
+      "internalSymbolCount": 11
+    },
+    "modelCallsFromPipeline": 0,
+    "networkCallsFromPipeline": 0
+  },
+  "unitTests": {
+    "command": "npm test",
+    "result": "see docs/P2.0A-REPORT.md; this script focuses on CLI and seal checks"
+  },
+  "limitations": [
+    "所有 CRM 数据都是 synthetic/ 合成 fixture，不是真实 CRM 扫描结果。",
+    "没有异机备份证据；P1.4 及本轮备份仍只在本机。",
+    "没有 Windows 实机验收。",
+    "浏览器 UI 尚未接入 CRM 仓库切换器；P2.0-A 只验证数据层与本地 CLI。"
+  ],
+  "status": "pass"
+}

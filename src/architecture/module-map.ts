@@ -29,6 +29,14 @@ export interface ModuleDefinition {
   name: string;
   latin: string;
   review: AtlasModuleRecord['review'];
+  /**
+   * 非 NEXUS 仓库的模块定义必须显式记录审核方式与主体；缺失时按
+   * “尚未核实”处理，不能把本地 profile 自动当成 AI 或人工复核。
+   */
+  reviewMethod?: 'ai-source-review' | 'human-review' | 'unverified';
+  reviewActor?: string | null;
+  reviewedAt?: string | null;
+  reviewNote?: string | null;
   rule: string;
   description: string;
   summary: string;
@@ -240,8 +248,6 @@ export const MODULE_BY_ID = Object.fromEntries(
 
 export const PRODUCT_MODULE_IDS: AtlasModuleId[] = ['voice', 'animation', 'data'];
 
-const CANVAS_SUPPORTING_FILES = new Set(MODULE_BY_ID.canvas.supportingFiles);
-
 export function classifyScope(sourceFile: string | null): AtlasScope {
   if (!sourceFile) return 'external';
   if (sourceFile.startsWith('e2e/') || /\.(?:test|spec)\.[cm]?[jt]sx?$/.test(sourceFile)) return 'test';
@@ -253,32 +259,41 @@ function matchesPrefix(path: string, prefix: string): boolean {
   return path === prefix || path.startsWith(prefix);
 }
 
-export function primaryModuleFor(sourceFile: string | null): AtlasModuleId | null {
+/**
+ * 模块归类只使用 profile 提供的路径规则；没有匹配时返回 null，由调用方
+ * 保留“未分类”，而不是借用 NEXUS 或 Community 结果补位。
+ */
+export function primaryModuleFor(
+  sourceFile: string | null,
+  definitions: ModuleDefinition[] = MODULE_DEFINITIONS,
+): AtlasModuleId | null {
   if (!sourceFile) return null;
   const normalized = normalizeRelativePath(sourceFile);
   if (!normalized.ok) return null;
   const path = normalized.path;
 
-  for (const definition of MODULE_DEFINITIONS) {
+  for (const definition of definitions) {
     if (definition.primaryFiles.includes(path)) return definition.id;
   }
-  // Canvas 没有主归属入口，必须先跳过它，避免把支撑文件误判成主模块。
-  for (const definition of MODULE_DEFINITIONS) {
-    if (definition.id === 'canvas') continue;
+  for (const definition of definitions) {
     if (definition.primaryPrefixes.some((prefix) => matchesPrefix(path, prefix))) return definition.id;
   }
   return null;
 }
 
-export function supportingModulesFor(sourceFile: string | null): AtlasModuleId[] {
+export function supportingModulesFor(
+  sourceFile: string | null,
+  definitions: ModuleDefinition[] = MODULE_DEFINITIONS,
+): AtlasModuleId[] {
   if (!sourceFile) return [];
   const normalized = normalizeRelativePath(sourceFile);
   if (!normalized.ok) return [];
   const modules: AtlasModuleId[] = [];
-  if (CANVAS_SUPPORTING_FILES.has(normalized.path)) modules.push('canvas');
-  for (const definition of MODULE_DEFINITIONS) {
-    if (definition.id === 'canvas') continue;
-    if (definition.supportingFiles.includes(normalized.path) && !modules.includes(definition.id)) {
+  for (const definition of definitions) {
+    if (
+      definition.supportingFiles.includes(normalized.path) &&
+      !modules.includes(definition.id)
+    ) {
       modules.push(definition.id);
     }
   }
@@ -302,10 +317,13 @@ export interface NodeClassification {
   symbolType: AtlasSymbolType;
 }
 
-export function classifyNode(input: ClassifyNodeInput): NodeClassification {
+export function classifyNode(
+  input: ClassifyNodeInput,
+  definitions: ModuleDefinition[] = MODULE_DEFINITIONS,
+): NodeClassification {
   const scope = input.external ? 'external' : classifyScope(input.sourceFile);
-  const primary = input.external ? null : primaryModuleFor(input.sourceFile);
-  const supporting = input.external ? [] : supportingModulesFor(input.sourceFile);
+  const primary = input.external ? null : primaryModuleFor(input.sourceFile, definitions);
+  const supporting = input.external ? [] : supportingModulesFor(input.sourceFile, definitions);
   const moduleIds = [...(primary ? [primary] : []), ...supporting.filter((id) => id !== primary)];
 
   const fileLabel = /\.(?:tsx?|jsx?|mjs|cjs|py|css)$/i.test(input.label);

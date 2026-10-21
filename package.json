@@ -1,8 +1,8 @@
 {
   "name": "dachuan-atlas",
   "private": true,
-  "version": "0.6.0",
-  "description": "DACHUAN ATLAS — 大川项目架构星图 / P1.4 双维度关系作用域与迁移准备",
+  "version": "0.7.0",
+  "description": "DACHUAN ATLAS — 大川项目架构星图 / P2.0-A CRM 独立导入管线准备",
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1",
@@ -12,12 +12,14 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "import:graphify": "tsc -p tsconfig.tools.json && node tools/import-graphify.mjs",
+    "import:crm": "tsc -p tsconfig.tools.json && node tools/import-crm.mjs",
     "attach:flows": "node tools/attach-flows.mjs",
     "attach:explanations": "node tools/attach-explanations.mjs",
     "verify:build": "node tools/verify-build.mjs",
     "verify:chrome": "node tools/verify-chrome.mjs",
     "verify:p13": "node tools/verify-p13.mjs",
     "verify:p14": "node tools/verify-p14.mjs",
+    "verify:p20a": "tsc -p tsconfig.tools.json && node tools/verify-p20a.mjs",
     "audit:backup": "node tools/audit-backup.mjs"
   },
   "dependencies": {

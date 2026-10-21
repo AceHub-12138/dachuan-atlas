@@ -1,0 +1,44 @@
+{
+  "commit": "cafebabecafebabecafebabecafebabecafebabe",
+  "repository_id": "crm",
+  "repository_name": "CRM Synthetic Fixture",
+  "system": "crm",
+  "scanned_at": "2026-10-19T09:30:00Z",
+  "generated_at": "2026-10-20",
+  "file_count": 8,
+  "byte_count": 2444,
+  "files": [
+    {
+      "path": "synthetic/contracts/contract-service.ts",
+      "sha256": "f1d35197b0e21dac5648e9344af09440975dc5f4a95aa6edcce23e21adb5e65b"
+    },
+    {
+      "path": "synthetic/customer/customer-service.ts",
+      "sha256": "75d58bb05bd8aed859a4eb30c4059472a9ba95eea4e50b7a5047b7cde566355c"
+    },
+    {
+      "path": "synthetic/orders/index.ts",
+      "sha256": "13b2fcc7610a1381e18f57208905bf646dd3efe4ef2e6ddcd2febfa256f7dd6b"
+    },
+    {
+      "path": "synthetic/orders/order-service.ts",
+      "sha256": "dd6b225ec9277ebe691ff2a20540d8ab63ed6ae7d3a6a4fc0fcf6dd4a0525671"
+    },
+    {
+      "path": "synthetic/receivables/receivable-service.ts",
+      "sha256": "76d4ee9a1464810141c1bdd37a808caa7211916ea9574fb5907d15fad157046b"
+    },
+    {
+      "path": "synthetic/shared/config.ts",
+      "sha256": "6fdc721d2009cc1887d43be181211d32c7295f24df49ffaee29a35732529f460"
+    },
+    {
+      "path": "synthetic/shared/id.ts",
+      "sha256": "44a71599ea6e2186d162b2d8843b619a9b5a53d8a6f273b601dfc1b766e10c10"
+    },
+    {
+      "path": "synthetic/shipments/shipment-service.ts",
+      "sha256": "259c8fd9785934f3145ce2f89e9e1ab7e3eef0f40343646018ed73d3d07705a8"
+    }
+  ]
+}

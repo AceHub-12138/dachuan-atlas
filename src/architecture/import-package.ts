@@ -21,6 +21,21 @@ export interface ImportedArchitecture {
   warnings: string[];
 }
 
+/**
+ * P2.0-A 的界面边界：当前画面仍按 NEXUS 四模块固定布局渲染。
+ * CRM 数据集已经可以生成和校验，但仓库切换器尚未实现；在界面上直接
+ * 接收 CRM 会把 CRM 模块误画成 NEXUS 星图，因此暂时明确拒绝。
+ * P2.0-B 引入仓库切换器后再移除此门禁。
+ */
+export function assertSupportedUiDataset(dataset: AtlasDataset): void {
+  if (dataset.source.kind === 'graphify' && dataset.snapshot?.repository.id !== 'nexus') {
+    throw new AtlasDataError(
+      'IMPORT_FILE_UNRECOGNIZED',
+      '当前界面只支持 NEXUS 历史快照。CRM 数据请先用 npm run import:crm 在本地校验；仓库切换器将在 P2.0-B 接入。',
+    );
+  }
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
