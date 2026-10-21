@@ -81,6 +81,8 @@ export interface AdaptGraphifyOptions {
   manifestVerification?: GraphifyManifestVerification | null;
   /** 调用方完成三件套来源核对后传入；未传时按清单校验结果推导。 */
   importStatusOverride?: 'complete' | 'partial';
+  /** CRM CLI 传入 Git 历史核实结果；NEXUS 旧导入不传。 */
+  historyVerified?: boolean;
 }
 
 export interface AdaptGraphifyInput {
@@ -652,6 +654,13 @@ export function adaptGraphifyWithProfile(
       manifestStatus?.status === 'verified'
         ? `snapshot-manifest.json 已逐文件校验：${manifestStatus.verifiedFiles}/${manifestStatus.fileCount}。`
         : '未完成 snapshot-manifest.json 逐文件校验；提交与文件完整性仍需复核。',
+      ...(options.historyVerified === undefined
+        ? []
+        : [
+            options.historyVerified
+              ? '本地 Git 历史核实通过：提交是 commit 对象，清单文件与历史树一致。'
+              : '未完成本地 Git 历史核实；即使清单自洽也不能标记为 complete。',
+          ]),
       ...(profile.synthetic
         ? ['合成数据：仅用于导入管线验证，不代表真实仓库架构或当前工作区。']
         : []),
@@ -705,8 +714,15 @@ export function adaptGraphifyWithProfile(
   });
 
   const productNodes = nodes.filter((node) => node.scope === 'product');
+  const testNodes = nodes.filter((node) => node.scope === 'test');
+  const toolingNodes = nodes.filter((node) => node.scope === 'tooling');
+  const externalNodes = nodes.filter((node) => node.scope === 'external');
+  const internalNodes = nodes.length - externalNodes.length;
   const modulesAssigned = productNodes.filter((node) => node.moduleId !== null).length;
   const modulesUnassigned = productNodes.length - modulesAssigned;
+  const assignedNodes = nodes.filter((node) => node.moduleId !== null).length;
+  const unassignedNodes = nodes.length - assignedNodes;
+  const multiModuleNodes = nodes.filter((node) => node.moduleIds.length > 1).length;
 
   if (count('invalidNodes')) {
     issues.push({
@@ -788,11 +804,22 @@ export function adaptGraphifyWithProfile(
       count: selfReferences,
     });
   }
-  if (snapshot.importStatus === 'partial') {
+  const manifestIncomplete =
+    !manifestStatus || manifestStatus.status !== 'verified' || commit === 'unknown';
+  if (snapshot.importStatus === 'partial' && manifestIncomplete) {
     issues.push({
       code: 'GRAPHIFY_MANIFEST_UNVERIFIED',
       severity: 'warning',
       message: '快照清单未完成逐文件校验或缺少提交信息，导入状态标记为 partial。',
+      count: 1,
+    });
+  }
+  if (snapshot.importStatus === 'partial' && options.historyVerified === false) {
+    issues.push({
+      code: 'GRAPHIFY_HISTORY_UNVERIFIED',
+      severity: 'warning',
+      message:
+        '未完成本地 Git 历史核实（未提供仓库、只能对应部分文件或核实失败），导入状态只能是 partial。',
       count: 1,
     });
   }
@@ -830,10 +857,17 @@ export function adaptGraphifyWithProfile(
       : {
           code: 'GRAPHIFY_MODULE_UNCLASSIFIED',
           severity: 'info',
-          message: `${modulesAssigned} 个产品节点按 ${profile.repository.name} 的路径/职责规则归类，${modulesUnassigned} 个节点保持未分类（没有足够依据，不强行归类）。`,
+          message: `${modulesAssigned} 个产品节点按 ${profile.repository.name} 的路径/职责规则归类，${modulesUnassigned} 个产品节点保持未分类（没有足够依据，不强行归类）。`,
           count: modulesAssigned,
         },
   );
+  // 统计口径显式写出来，避免把“9 已归类 + 2 未分类 = 11”误读成总节点 12 丢失了一个。
+  issues.push({
+    code: 'GRAPHIFY_NODE_PARTITION',
+    severity: 'info',
+    message: `节点统计口径：${nodes.length} 个已导入节点 = ${internalNodes} 个内部节点（product ${productNodes.length} / test ${testNodes.length} / tooling ${toolingNodes.length}）+ ${externalNodes.length} 个外部节点；产品模块主归属 ${modulesAssigned}/${productNodes.length}，未分类 ${modulesUnassigned}；全部节点中已归类 ${assignedNodes}、未归类 ${unassignedNodes}；多模块归属 ${multiModuleNodes} 个（与主归属维度重叠，不参与相加）。`,
+    count: nodes.length,
+  });
 
   const diagnostics: AtlasDiagnostics = {
     issues,
@@ -843,9 +877,13 @@ export function adaptGraphifyWithProfile(
       nodes: nodes.length,
       relations: relations.length,
       productNodes: productNodes.length,
-      testNodes: nodes.filter((node) => node.scope === 'test').length,
-      toolingNodes: nodes.filter((node) => node.scope === 'tooling').length,
-      externalNodes: nodes.filter((node) => node.scope === 'external').length,
+      testNodes: testNodes.length,
+      toolingNodes: toolingNodes.length,
+      externalNodes: externalNodes.length,
+      internalNodes,
+      assignedNodes,
+      unassignedNodes,
+      multiModuleNodes,
       conceptNodes: nodes.filter((node) => node.kind === 'concept').length,
       rationaleNodes: nodes.filter((node) => node.kind === 'rationale').length,
       modulesAssigned,

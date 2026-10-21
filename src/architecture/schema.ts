@@ -400,9 +400,22 @@ export interface AtlasDiagnostics {
     testNodes: number;
     toolingNodes: number;
     externalNodes: number;
+    /**
+     * 已导入节点 = internalNodes + externalNodes。
+     * internalNodes = productNodes + testNodes + toolingNodes。
+     */
+    internalNodes: number;
+    /** 全部节点（含外部）中有主模块归属的数量；可与多模块归属重叠。 */
+    assignedNodes: number;
+    /** 全部节点中没有主模块归属的数量；外部节点默认在此列。 */
+    unassignedNodes: number;
+    /** moduleIds.length > 1 的节点数；是多模块维度，不参与主归属相加。 */
+    multiModuleNodes: number;
     conceptNodes: number;
     rationaleNodes: number;
+    /** 仅统计产品节点的模块归属，用于业务模块覆盖，不包含外部依赖。 */
     modulesAssigned: number;
+    /** productNodes - modulesAssigned；不是“全部未归类节点”。 */
     modulesUnassigned: number;
     unresolvedCalls: number;
     nodesWithUnresolvedCalls: number;
@@ -571,6 +584,9 @@ export type AtlasErrorCode =
   | 'GRAPHIFY_COMMIT_MISMATCH'
   | 'GRAPHIFY_COMMIT_INVALID'
   | 'GRAPHIFY_MANIFEST_INVALID'
+  | 'GRAPHIFY_MANIFEST_MISMATCH'
+  | 'GRAPHIFY_PROVENANCE_TIME_CONFLICT'
+  | 'GRAPHIFY_GIT_HISTORY_FAILED'
   | 'GRAPHIFY_REPOSITORY_MISMATCH'
   | 'GRAPHIFY_REPORT_INVALID'
   | 'REPOSITORY_PROFILE_INVALID'

@@ -441,6 +441,8 @@ interface AtlasDiagnostics {
   counts: {
     rawNodes, rawRelations, nodes, relations,
     productNodes, testNodes, toolingNodes, externalNodes,
+    // P2.0-A.1 统计分区（旧快照读取时补算，不重写源文件）
+    internalNodes, assignedNodes, unassignedNodes, multiModuleNodes,
     conceptNodes, rationaleNodes, modulesAssigned, modulesUnassigned,
     unresolvedCalls, nodesWithUnresolvedCalls
   };
@@ -457,6 +459,20 @@ interface AtlasDiagnostics {
 ```
 
 `issues` 记录被跳过/合并/脱敏的数量与原因；`coverageNotes` 记录已确认的 Graphify 盲区。两者都不包含绝对路径或源码内容。
+
+统计分区口径：
+
+```text
+nodes = internalNodes + externalNodes
+internalNodes = productNodes + testNodes + toolingNodes
+productNodes = modulesAssigned + modulesUnassigned
+nodes = assignedNodes + unassignedNodes
+multiModuleNodes 是重叠维度，不参与相加
+```
+
+`modulesAssigned/modulesUnassigned` 只统计产品节点；外部依赖不在其中。
+`GRAPHIFY_NODE_PARTITION` 诊断会写出同样的公式，避免把“9 已归类 + 2 未分类”
+误读成总节点 12 丢失了一个。
 
 ---
 

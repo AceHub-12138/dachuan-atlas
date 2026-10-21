@@ -1,6 +1,6 @@
 # DACHUAN ATLAS · 大川项目架构星图
 
-> **P2.0-A CRM 独立导入管线（合成数据验证） + P1.4 双维度关系作用域 + P1.3 可信架构解释 + P1.2 真实架构投影 + P0.1 视觉原型。** 默认构建只包含演示数据；真实 NEXUS 快照需在本地明确导入。P2.0-A 新增 CRM 本地 CLI：独立 `repository.id='crm'`、独立快照、独立模块 profile，核对 Graphify 三件套的仓库/提交/扫描记录与逐文件 SHA-256；未匹配模块规则的节点保持未分类，没有运行时证据的关系保持 `unknown`。本轮只用合成 CRM 数据验证，没有扫描真实 CRM，浏览器界面也尚未接入 CRM 仓库切换。P1.4 把关系的仓库维度（`repositoryScope`）与运行时维度（`runtimeScope`）拆开：跨仓库和跨进程可以同时成立，跨仓库不再自动等于跨进程，运行时边界未知时保持 `unknown`，AI 源码复核不再被误当成运行时验证。模块、文件与符号探索默认展示中文解释，技术细节可展开；语音场景仍称「模块协作示意」，严格区分概念步骤、静态关联、已验证运行时顺序与证据缺口。NEXUS 模块层会绘制有证据的跨模块连线。模块位置、中枢连接、星点、轨道与流星仍是演示构图。
+> **P2.0-A.1 CRM 来源可信度与安全加固（合成数据 + 合成 Git 验证） + P1.4 双维度关系作用域 + P1.3 可信架构解释 + P1.2 真实架构投影 + P0.1 视觉原型。** 默认构建只包含演示数据；真实 NEXUS 快照需在本地明确导入。P2.0-A.1 在 CRM 本地 CLI 上增加两层来源核实：清单内部 SHA-256/字节数一致性与本地 Git 历史核实（提交是否存在、是否为 commit、文件是否与历史树逐字节一致）。哈希、提交、仓库身份、时间、路径或符号链接冲突一律硬失败，`--allow-partial` 只能用于缺失证据；没有 Git 核实时状态只能是 `partial`。未匹配模块规则的节点保持未分类，没有运行时证据的关系保持 `unknown`。本轮只用合成 CRM 数据与临时合成 Git 仓库验证，没有扫描真实 CRM，浏览器界面也尚未接入 CRM 仓库切换。P1.4 把关系的仓库维度（`repositoryScope`）与运行时维度（`runtimeScope`）拆开：跨仓库和跨进程可以同时成立，跨仓库不再自动等于跨进程，运行时边界未知时保持 `unknown`，AI 源码复核不再被误当成运行时验证。模块、文件与符号探索默认展示中文解释，技术细节可展开；语音场景仍称「模块协作示意」，严格区分概念步骤、静态关联、已验证运行时顺序与证据缺口。NEXUS 模块层会绘制有证据的跨模块连线。模块位置、中枢连接、星点、轨道与流星仍是演示构图。
 
 一套用于评估「电影式宇宙星系 × 未来数字神经网络」视觉语言的独立前端原型，并在此基础上验证 Graphify 架构数据能否被可靠读取。它把 DACHUAN 软件体系映射为一座可探索的系统宇宙，通过三级镜头运动串联：**系统宇宙 → NEXUS 模块星系 → 模块详情 / 架构投影 / 模块协作示意**。
 
@@ -40,10 +40,15 @@ npm run attach:flows
 npm run build
 npm run verify:build
 
-# P2.0-A：合成 CRM 管线验证（不读取真实 CRM）
+# P2.0-A.1：合成 CRM 管线 + 硬失败矩阵 + 合成 Git 历史验证（不读取真实 CRM）
 npm run verify:p20a
 npm run import:crm -- --graphify tests/fixtures/crm-synthetic \
-  --profile tests/fixtures/crm-synthetic/profile.json --allow-synthetic --dry-run
+  --profile tests/fixtures/crm-synthetic/profile.json --allow-synthetic \
+  --dry-run --allow-partial
+
+# 有本地 Git 仓库时（真实接入必须；本轮只用合成仓库验证）
+npm run import:crm -- --graphify <graphify-dir> --profile <profile.json> \
+  --git-repo <crm-source-repository> --expect-commit <40-hex>
 ```
 
 P1.4 / P1.3 浏览器验收、性能对照与备份审计需要本地 preview 已启动：
@@ -191,15 +196,19 @@ ATLAS 标准数据集 → 关系筛选与聚合 → 星图布局数据 → Canva
 - 跨仓库关系必须提供 `interfaceEvidence`（API 契约、协议 schema、包清单、契约/集成测试等）；未审核候选不进入已确认图。
 - CRM / Electron 只完成数据层设计与 P2.0 前置条件，没有扫描或导入。详见 [P1.4-MULTI-REPO.md](docs/P1.4-MULTI-REPO.md) 与 [P2.0-CRM-PREREQUISITES.md](docs/P2.0-CRM-PREREQUISITES.md)。
 
-### 3.7 P2.0-A CRM 独立导入管线
+### 3.7 P2.0-A.1 CRM 独立导入与来源核实
 
 - CRM 不再是 NEXUS 的附属模块：独立 `repository.id='crm'`、独立 `snapshotKey`、独立 profile 模块定义。
-- 输入是本地 Graphify 历史产物：`graph.json`、`snapshot-manifest.json`、`GRAPH_REPORT.md`、`source-snapshot/`，外加显式 `.json` profile。
-- 导入前核对仓库身份、完整提交 SHA、扫描/生成时间与逐文件 SHA-256；缺清单、缺报告、提交只出现在报告时只能 `partial`，短 SHA/提交冲突/仓库冲突直接拒绝。
+- 输入是本地 Graphify 历史产物：`graph.json`、`snapshot-manifest.json`、`GRAPH_REPORT.md`、`source-snapshot/`，外加显式 `.json` profile 与本地 Git 仓库（`--git-repo`）。
+- 清单内部一致性与 Git 历史核实分开报告：前者检查 SHA-256/字节数/路径/符号链接，后者检查提交是否存在、是否为 commit、文件是否与历史树逐字节一致。
+- `complete` 只在两者都通过时成立；没有 Git 核实、清单缺失、报告缺失或提交只来自报告时只能 `partial`。
+- 哈希、字节数、提交、仓库身份、扫描/生成时间、路径穿越或符号链接冲突都是矛盾证据，**`--allow-partial` 不能绕过**。
 - 模块只按 profile 的路径/职责规则归类；无法确定的节点保持未分类，不借用 NEXUS 四模块，不做机器翻译。
+- 统计分区显式写出：`nodes = internalNodes + externalNodes`，`productNodes = modulesAssigned + modulesUnassigned`；合成 CRM 的 12 = 11 内部 + 1 外部，9 + 2 产品归属。
 - 所有静态关系保持 `intra-repository` + `runtimeScope=unknown`；没有运行时证据就不升级，不生成跨仓库连线。
-- 真实 CRM 输出只允许 `local-data/crm/` 或项目外目录；失败不写文件，不影响 NEXUS 历史快照与演示模式。
-- P2.0-A 使用合成 fixture 验证；真实 CRM 未扫描。管线说明见 [CRM-IMPORT-PIPELINE.md](docs/architecture/CRM-IMPORT-PIPELINE.md)，报告见 [P2.0A-REPORT.md](docs/P2.0A-REPORT.md)，真实接入门槛见 [P2.0B-PREFLIGHT.md](docs/P2.0B-PREFLIGHT.md)。
+- 真实 CRM 输出只允许 `local-data/crm/` 或项目外目录；拒绝 `public/`、`dist/`、`.git/`、`node_modules/`、`local-data/nexus/`；失败不写文件，不影响 NEXUS 历史快照与演示模式。
+- 隐私体检通过不等于可公开分享：审计固定记录 `publicShareable=false`。
+- P2.0-A.1 使用合成 fixture 与临时合成 Git 仓库验证；真实 CRM 未扫描。管线说明见 [CRM-IMPORT-PIPELINE.md](docs/architecture/CRM-IMPORT-PIPELINE.md)，报告见 [P2.0A.1-REPORT.md](docs/P2.0A.1-REPORT.md)，真实接入门槛见 [P2.0B-PREFLIGHT.md](docs/P2.0B-PREFLIGHT.md)。
 
 ### 3.8 备份与迁移
 
@@ -503,7 +512,7 @@ P0.1 没有接入 Graphify；P1.1 / P1.2 只接入用户本地导入的 Graphify
 
 1. 系统位置、模块位置、中枢连接、星点、轨道、流星与模块外圈卫星仍是演示构图；只有本地快照中确有证据的跨模块连线才由数据绘制。
 2. 真实架构数据只在用户本地导入后出现；默认构建与首次访问均为演示数据。
-3. CRM / Electron 尚未接入真实架构数据；P1.3 未扫描这两个仓库，也未重新扫描 NEXUS 工作区。P2.0-A 只完成 CRM 本地导入管线，并用合成 fixture 验证；没有读取真实 CRM，浏览器也尚未接入 CRM 仓库切换。
+3. CRM / Electron 尚未接入真实架构数据；P1.3 未扫描这两个仓库，也未重新扫描 NEXUS 工作区。P2.0-A.1 只完成 CRM 本地导入、硬失败矩阵与合成 Git 历史核实；没有读取真实 CRM 或其 Git 历史，浏览器也尚未接入 CRM 仓库切换。
 4. 13 条关系为 AI 源码复核，独立人工审核为 0；3,157 条仍待核实；42 条 INFERRED 不等于事实；Canvas 模块为部分核实。
 5. 当前快照的模块层只有 3 个有向模块对（48 条关系），没有 Canvas 主模块连线，也没有跨模块 INFERRED 边；界面不会为了“更丰满”补线。
 6. 模块级聚合按主模块去重；Canvas 等支撑成员关系不会重复计为模块节点。文件/符号层显示的是有限子图，未显示不等于不存在。
@@ -511,12 +520,13 @@ P0.1 没有接入 Graphify；P1.1 / P1.2 只接入用户本地导入的 Graphify
 8. 模块协作示意目前只有 1 个语音场景、7 个 AI 概念步骤；4 个衔接有静态关系，2 个衔接缺少证据。0 个衔接被验证为运行时顺序。
 9. 模块协作场景与模块解释只存在于本地附加数据；迁移机器需要携带 `local-data`，不能从源码自动生成。
 10. 备份目前仅在**本机**：`~/Documents/DACHUAN-ATLAS-private-backups`；尚未完成异机备份，Windows 实机恢复未执行。
-11. 多仓库设计未包含 CRM / Electron 的真实模块映射、扫描结果或跨仓库接口证据；导入新仓库仍需要下一轮明确授权。P2.0-A 的 CRM 验证只使用 `tests/fixtures/crm-synthetic/` 合成数据。
-12. 详情面板和架构投影右栏在 1080p 下需要面板内滚动，这是固定高度面板的预期行为。
-13. P1.2 录屏为 1440×810、30 FPS；P1.3 未重新录屏。
-14. 页面以桌面端为重点，支持窄屏降级，但手机端不是本轮验收目标。
-15. 独立 Google Chrome 已验收；Microsoft Edge、Safari、Firefox 尚未复核。
-16. 未在 Windows 实机运行，未在物理 4K 显示器输出，不能据此宣称双平台或全部显示设备已通过验收。
+11. 多仓库设计未包含 CRM / Electron 的真实模块映射、扫描结果或跨仓库接口证据；导入新仓库仍需要下一轮明确授权。P2.0-A.1 的 CRM 验证只使用 `tests/fixtures/crm-synthetic/` 合成数据与临时合成 Git 仓库。
+12. Git 核实只证明“提交存在、对象类型是 commit、文件与历史树一致”，不验证提交签名、作者身份、分支来源或仓库可信度；Graphify 若过滤/转换产物，历史核实只能 `partial`，不能写成 `complete`。
+13. 详情面板和架构投影右栏在 1080p 下需要面板内滚动，这是固定高度面板的预期行为。
+14. P1.2 录屏为 1440×810、30 FPS；P1.3 未重新录屏。
+15. 页面以桌面端为重点，支持窄屏降级，但手机端不是本轮验收目标。
+16. 独立 Google Chrome 已验收；Microsoft Edge、Safari、Firefox 尚未复核。
+17. 未在 Windows 实机运行，未在物理 4K 显示器输出，不能据此宣称双平台或全部显示设备已通过验收。
 
 ---
 
@@ -633,6 +643,6 @@ DACHUAN ATLAS 是独立视觉原型与数据适配演示，必须区分四类信
 - **模块协作示意**：P1.3 的语音场景由本地附加数据提供，7 个概念步骤都引用该快照中真实存在的节点；4 个衔接有静态关系，2 个衔接没有图边，明确显示为缺少证据。它不是自动生成的业务流程，0 个衔接被验证为运行时顺序。
 - **未核实信息**：13 条关系为 AI 源码复核，独立人工审核为 0；3,157 条仍待核实；42 条 Graphify INFERRED 关系不等于事实；Canvas 模块仅部分核实。Graphify 未识别的 rAF、Canvas API、CSS、React 回调与跨进程关系，不代表不存在。
 
-CRM / Electron 尚未接入真实架构数据。P2.0-A 的 `tests/fixtures/crm-synthetic/` 是**合成数据**：路径以 `synthetic/` 开头、提交为 `cafebabecafebabecafebabecafebabecafebabe`，只用于验证导入管线，不代表真实 CRM 的模块、符号或架构。模块外圈的卫星、微轨道、星尘与流星属于装饰效果，不代表数据传输或架构关系；它们不参与投影、路径或统计。
+CRM / Electron 尚未接入真实架构数据。P2.0-A.1 的 `tests/fixtures/crm-synthetic/` 是**合成数据**：路径以 `synthetic/` 开头、提交为 `cafebabecafebabecafebabecafebabecafebabe`，只用于验证导入管线，不代表真实 CRM 的模块、符号或架构。Git 历史核实用的是运行期间临时创建的合成仓库，提交 SHA 每次由本机 Git 生成，不是真实 CRM 提交。模块外圈的卫星、微轨道、星尘与流星属于装饰效果，不代表数据传输或架构关系；它们不参与投影、路径或统计。
 
-P2.0-A 在 CRM 独立导入管线、合成数据验证、P1.4 封存复核与 P2.0-B 前置清单完成后停止，等待下一轮架构审核。CRM / Electron 没有扫描或导入，P2.0-B 未开始。
+P2.0-A.1 在 partial 策略、Git 历史核实、统计分区与安全边界加固完成后停止，等待架构审核；不自动进入 P2.0-B1。CRM / Electron 没有扫描或导入。

@@ -1,8 +1,8 @@
 {
   "name": "dachuan-atlas",
   "private": true,
-  "version": "0.7.0",
-  "description": "DACHUAN ATLAS — 大川项目架构星图 / P2.0-A CRM 独立导入管线准备",
+  "version": "0.7.1",
+  "description": "DACHUAN ATLAS — 大川项目架构星图 / P2.0-A.1 CRM 来源可信度与安全加固",
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1",

@@ -1,0 +1,395 @@
+{
+  "generatedAt": "2026-10-21T07:35:47.962Z",
+  "round": "P2.0-A.1",
+  "environment": {
+    "platform": "darwin",
+    "node": "v24.21.0",
+    "usesRealCrmData": false,
+    "dataSource": "tests/fixtures/crm-synthetic + temporary synthetic Git repository"
+  },
+  "p14Seal": {
+    "status": "pass",
+    "backupDirectoryExists": true,
+    "bundle": {
+      "file": "atlas-p14-final-20261021.bundle",
+      "sha256": "79bc9a8d2280f6b1cb70ebf446593f25d8d0835eac1dce9ff111a9786314ac03",
+      "expectedSha256": "79bc9a8d2280f6b1cb70ebf446593f25d8d0835eac1dce9ff111a9786314ac03",
+      "match": true
+    },
+    "bundleRef": "ddc74c1d5df5cc0d5e5937b7ca12a0c59e92c06b",
+    "refsMatch": true,
+    "bundleVerify": {
+      "code": 0,
+      "output": "~/Documents/DACHUAN-ATLAS-private-backups/p14-final-20261021/atlas-p14-final-20261021.bundle is okay\n"
+    },
+    "postBundleCommits": {
+      "from": "ddc74c1d5df5cc0d5e5937b7ca12a0c59e92c06b",
+      "to": "6b9e9e9",
+      "commits": [
+        "6b9e9e9 P1.4: index regression screenshot",
+        "f65e8c1 P1.4: record final bundle audit and backup report"
+      ],
+      "files": [
+        "README.md",
+        "docs/P1.4-BACKUP-REPORT.md",
+        "docs/architecture/p1.4-final-bundle-audit.json",
+        "docs/screenshots/README.md"
+      ],
+      "docsOnly": true
+    },
+    "dataCopy": {
+      "files": [
+        {
+          "file": "nexus/explanations/module-explanations.json",
+          "sha256": "a95b0d10e517426a7373fbcbfc7c3e2c12f052143aed5c4fb75296ceb090e8e4",
+          "expected": "a95b0d10e517426a7373fbcbfc7c3e2c12f052143aed5c4fb75296ceb090e8e4",
+          "match": true
+        },
+        {
+          "file": "nexus/flows/voice-request-to-overlay.flows.json",
+          "sha256": "e8d7a006c69007fca3d71793ce6d477bc0a0bf64dd2643f58c284cd8abef9f69",
+          "expected": "e8d7a006c69007fca3d71793ce6d477bc0a0bf64dd2643f58c284cd8abef9f69",
+          "match": true
+        },
+        {
+          "file": "nexus/nexus-2026-10-20-2584284.atlas.json",
+          "sha256": "bb7774ac1413fd31150afecad3563ed38ac6766346fe2e30269dc97bc42f0f35",
+          "expected": "bb7774ac1413fd31150afecad3563ed38ac6766346fe2e30269dc97bc42f0f35",
+          "match": true
+        }
+      ],
+      "allMatch": true
+    },
+    "p13Bundle": {
+      "file": "atlas-p13-final-20261021.bundle",
+      "sha256": "a4b6561e1b84507e51684717d90d000c8d323c5021f28504208812fd5b28784a",
+      "expectedSha256": "a4b6561e1b84507e51684717d90d000c8d323c5021f28504208812fd5b28784a",
+      "match": true
+    },
+    "workingTree": {
+      "branch": "main",
+      "head": "44a11c723ed88c36639ccc06cb9858379860c44d",
+      "status": "dirty"
+    },
+    "windowsAcceptance": "not_verified",
+    "offMachineBackup": "not_verified",
+    "audit": {
+      "bundleSha256": "79bc9a8d2280f6b1cb70ebf446593f25d8d0835eac1dce9ff111a9786314ac03",
+      "bundleBytes": 130116142,
+      "expectedCommit": "ddc74c1d5df5cc0d5e5937b7ca12a0c59e92c06b",
+      "shaMatch": true,
+      "commitMatch": true
+    }
+  },
+  "priorEvidence": {
+    "p20aVerificationExists": true,
+    "p20aVerificationStatus": "pass"
+  },
+  "scenarios": {
+    "completeWithGitHistory": {
+      "status": "pass",
+      "exitCode": 0,
+      "outputExists": true,
+      "reportExists": true,
+      "gitCommit": "ddb6933c7f753f421082d20589ef12e0c083384f",
+      "counts": {
+        "rawNodes": 12,
+        "rawRelations": 16,
+        "nodes": 12,
+        "relations": 14,
+        "productNodes": 11,
+        "testNodes": 0,
+        "toolingNodes": 0,
+        "externalNodes": 1,
+        "internalNodes": 11,
+        "assignedNodes": 9,
+        "unassignedNodes": 3,
+        "multiModuleNodes": 0,
+        "conceptNodes": 0,
+        "rationaleNodes": 0,
+        "modulesAssigned": 9,
+        "modulesUnassigned": 2,
+        "unresolvedCalls": 0,
+        "nodesWithUnresolvedCalls": 0
+      },
+      "snapshot": {
+        "repository": "crm",
+        "commit": "ddb6933c7f753f421082d20589ef12e0c083384f",
+        "snapshotKey": "crm@ddb6933@2026-10-20",
+        "importStatus": "complete",
+        "manifestStatus": "verified"
+      },
+      "provenance": {
+        "manifestConsistency": "verified",
+        "gitHistory": {
+          "status": "verified",
+          "commit": "ddb6933c7f753f421082d20589ef12e0c083384f",
+          "commitExists": true,
+          "commitIsCommit": true,
+          "manifestFiles": 8,
+          "matchedFiles": 8,
+          "mismatchedFiles": [],
+          "missingInGit": [],
+          "missingInSnapshot": [],
+          "snapshotFilesNotInManifest": [],
+          "gitFilesNotInManifest": 0,
+          "gitFilesNotInManifestSample": [],
+          "symlinksInSnapshot": [],
+          "note": "提交 ddb6933 是 commit 对象；8/8 个清单文件与历史树逐字节一致。"
+        },
+        "separation": {
+          "manifestConsistency": "verified",
+          "gitHistory": "verified",
+          "completeRequiresBoth": true,
+          "note": "清单内部一致与 Git 历史核实分别记录；complete 只在两者都通过时为 true。"
+        }
+      },
+      "partition": "节点统计口径：12 个已导入节点 = 11 个内部节点（product 11 / test 0 / tooling 0）+ 1 个外部节点；产品模块主归属 9/11，未分类 2；全部节点中已归类 9、未归类 3；多模块归属 0 个（与主归属维度重叠，不参与相加）。",
+      "runtime": {
+        "runtimeVerified": 0,
+        "unknownRuntime": 14
+      },
+      "roundtripParsed": true,
+      "privacy": {
+        "status": "pass",
+        "findings": [],
+        "absolutePathCount": 0,
+        "credentialFieldCount": 0,
+        "internalSymbolCount": 11
+      },
+      "sharing": {
+        "privacyPassed": true,
+        "containsInternalSymbols": true,
+        "internalSymbolCount": 11,
+        "publicShareable": false,
+        "note": "隐私体检只检查绝对路径与凭据字段；通过不等于可以公开分享。输出仍包含内部符号、相对路径与架构关系，默认只保存在私有目录。"
+      },
+      "stdout": "[P2.0-A.1] 来源核对\n  仓库: crm / CRM 合成验证仓库（合成验证）\n  提交: ddb6933c7f753f421082d20589ef12e0c083384f（来源 manifest）\n  扫描: 2026-10-19T09:30:00Z / 生成: 2026-10-20\n  清单: 8/8 文件通过 SHA-256，2444 bytes，内部一致性 verified\n  Git 历史: verified（提交 ddb6933 是 commit 对象；8/8 个清单文件与历史树逐字节一致。）\n[P2.0-A.1] 转换结果\n  节点 12 / 关系 14 / 模块 5\n  模块归属 9/11 产品节点，未分类 2，外部 1\n  runtimeVerified 0 / runtimeScope=unknown 14\n  导入状态: complete\n  隐私体检: pass；可公开分享: 否\n[P2.0-A.1] 输出\n  out.atlas.json (40.2 KB, sha256 f0572ed16b60…)\n  import-report.json\n  重新解析校验: 通过（12 节点 / 14 关系）\n",
+      "stderr": ""
+    },
+    "manifestOnlyWithoutGit": {
+      "status": "pass",
+      "strict": {
+        "exitCode": 1,
+        "outputExists": false
+      },
+      "partial": {
+        "exitCode": 0,
+        "outputExists": true,
+        "importStatus": "partial",
+        "manifestConsistency": "verified",
+        "gitHistory": "not_attempted"
+      },
+      "strictStderr": "\n[P2.0-A.1] CRM 导入失败: 来源核对未达到完整状态（清单一致性、仓库身份、报告记录或 Git 历史核实不完整）。如确认只做管线验证，请加 --allow-partial。\n"
+    },
+    "missingManifest": {
+      "status": "pass",
+      "strict": {
+        "exitCode": 1,
+        "outputExists": false
+      },
+      "partial": {
+        "exitCode": 0,
+        "outputExists": true,
+        "importStatus": "partial",
+        "manifestConsistency": "partial",
+        "commit": "cafebabecafebabecafebabecafebabecafebabe"
+      },
+      "stdout": "[P2.0-A.1] 警告: 提交只出现在 GRAPH_REPORT.md，未与 snapshot-manifest 的哈希绑定；只能 partial。\n[P2.0-A.1] 警告: 缺少 snapshot-manifest.json；无法验证源文件完整性与清单提交。\n[P2.0-A.1] 警告: 仓库身份只出现在 GRAPH_REPORT.md，未与清单绑定；只能 partial。\n[P2.0-A.1] 警告: 未提供 --git-repo；snapshot-manifest 自洽不等于 Git 历史已核实。\n[P2.0-A.1] 来源核对\n  仓库: crm / CRM 合成验证仓库（合成验证）\n  提交: cafebabecafebabecafebabecafebabecafebabe（来源 report）\n  扫描: 2026-10-19T09:30:00Z / 生成: 2026-10-20\n  清单: 未提供\n  Git 历史: not_attempted（未提供 --git-repo；snapshot-manifest 自洽不等于 Git 历史已核实。）\n[P2.0-A.1] 转换结果\n  节点 12 / 关系 14 / 模块 5\n  模块归属 9/11 产品节点，未分类 2，外部 1\n  runtimeVerified 0 / runtimeScope=unknown 14\n  导入状态: partial\n  隐私体检: pass；可公开分享: 否\n[P2.0-A.1] 输出\n  out.atlas.json (40.5 KB, sha256 ac23110db9e1…)\n  import-report.json\n  重新解析校验: 通过（12 节点 / 14 关系）\n",
+      "stderr": "\n[P2.0-A.1] CRM 导入失败: 缺少 snapshot-manifest.json。没有清单就无法验证提交与逐文件完整性；如只做结构转换，请加 --allow-partial。\n"
+    },
+    "invalidCommitSha": {
+      "status": "pass",
+      "strict": {
+        "exitCode": 1,
+        "outputExists": false
+      },
+      "partial": {
+        "exitCode": 1,
+        "outputExists": false
+      },
+      "strictStderr": "\n[P2.0-A.1] CRM 导入失败: snapshot-manifest.json 的 commit 必须是完整 40 位十六进制提交 SHA；短 SHA 或任意字符串不能作为历史事实。\n",
+      "partialStderr": "\n[P2.0-A.1] CRM 导入失败: snapshot-manifest.json 的 commit 必须是完整 40 位十六进制提交 SHA；短 SHA 或任意字符串不能作为历史事实。\n"
+    },
+    "tamperedFileHash": {
+      "status": "pass",
+      "strict": {
+        "exitCode": 1,
+        "stderr": "\n[P2.0-A.1] CRM 导入失败: snapshot-manifest 与 source-snapshot 冲突：SHA-256 不匹配 1 个；byte_count 声明 2444，实测 2457。这是矛盾证据，--allow-partial 不能绕过。\n"
+      },
+      "partial": {
+        "exitCode": 1,
+        "stderr": "\n[P2.0-A.1] CRM 导入失败: snapshot-manifest 与 source-snapshot 冲突：SHA-256 不匹配 1 个；byte_count 声明 2444，实测 2457。这是矛盾证据，--allow-partial 不能绕过。\n"
+      },
+      "existingOutputPreserved": true,
+      "reportWritten": false,
+      "leftoverTemporaryFiles": []
+    },
+    "missingReport": {
+      "status": "pass",
+      "strict": {
+        "exitCode": 1,
+        "outputExists": false
+      },
+      "partial": {
+        "exitCode": 0,
+        "outputExists": true,
+        "importStatus": "partial",
+        "manifestConsistency": "verified"
+      },
+      "strictStderr": "\n[P2.0-A.1] CRM 导入失败: 缺少 GRAPH_REPORT.md。没有报告就无法交叉核对生成时间与扫描记录；如只做结构转换，请加 --allow-partial。\n"
+    },
+    "repositoryMismatch": {
+      "status": "pass",
+      "strict": {
+        "exitCode": 1,
+        "outputExists": false
+      },
+      "partial": {
+        "exitCode": 1,
+        "outputExists": false
+      },
+      "strictStderr": "\n[P2.0-A.1] CRM 导入失败: snapshot-manifest 声明仓库 nexus，期望 crm；拒绝把不同仓库的产物混入。\n"
+    },
+    "fakeGitCommit": {
+      "status": "pass",
+      "fakeCommit": "dddddddddddddddddddddddddddddddddddddddd",
+      "strict": {
+        "exitCode": 1,
+        "outputExists": false,
+        "stderr": "\n[P2.0-A.1] CRM 导入失败: Git 历史核实失败：提交 ddddddd 在本地 Git 仓库中不存在，或不能解析为 commit。 这不是可降级的缺失证据。\n"
+      },
+      "partial": {
+        "exitCode": 1,
+        "outputExists": false,
+        "stderr": "\n[P2.0-A.1] CRM 导入失败: Git 历史核实失败：提交 ddddddd 在本地 Git 仓库中不存在，或不能解析为 commit。 这不是可降级的缺失证据。\n"
+      }
+    },
+    "gitHistoryPartial": {
+      "status": "pass",
+      "strict": {
+        "exitCode": 1,
+        "stderr": "\n[P2.0-A.1] CRM 导入失败: 来源核对未达到完整状态（清单一致性、仓库身份、报告记录或 Git 历史核实不完整）。如确认只做管线验证，请加 --allow-partial。\n"
+      },
+      "partial": {
+        "exitCode": 0,
+        "outputExists": true,
+        "importStatus": "partial",
+        "manifestConsistency": "verified",
+        "gitHistory": {
+          "status": "partial",
+          "commit": "ddb6933c7f753f421082d20589ef12e0c083384f",
+          "commitExists": true,
+          "commitIsCommit": true,
+          "manifestFiles": 8,
+          "matchedFiles": 7,
+          "mismatchedFiles": [
+            "synthetic/customer/customer-service.ts"
+          ],
+          "missingInGit": [],
+          "missingInSnapshot": [],
+          "snapshotFilesNotInManifest": [],
+          "gitFilesNotInManifest": 0,
+          "gitFilesNotInManifestSample": [],
+          "symlinksInSnapshot": [],
+          "note": "提交 ddb6933 是 commit 对象，但只能核实 7/8 个清单文件；缺失 0、内容不一致 1、快照多余 0、符号链接 0。"
+        }
+      }
+    },
+    "exportReimportAndDataValidation": {
+      "status": "pass",
+      "reimported": true,
+      "duplicateRelationIdRejected": true,
+      "unknownModuleRejected": true
+    }
+  },
+  "nexusBaseline": {
+    "status": "pass",
+    "nodes": 1390,
+    "relations": 3170,
+    "modules": 4,
+    "directedModulePairs": 3,
+    "interModuleRelations": 48,
+    "modulePairs": [
+      {
+        "from": "data",
+        "to": "voice",
+        "count": 35
+      },
+      {
+        "from": "animation",
+        "to": "data",
+        "count": 13
+      }
+    ],
+    "flows": {
+      "scenarios": 1,
+      "steps": 7,
+      "staticHandoffs": 4,
+      "gaps": 2,
+      "unresolved": 0
+    },
+    "expected": {
+      "nodes": 1390,
+      "relations": 3170,
+      "modules": 4,
+      "directedModulePairs": 3,
+      "interModuleRelations": 48,
+      "steps": 7,
+      "staticHandoffs": 4,
+      "gaps": 2
+    },
+    "isolation": {
+      "status": "pass",
+      "crmFailureExitCode": 1,
+      "crmFailureWroteOutput": false,
+      "nexusSha256Before": "bb7774ac1413fd31150afecad3563ed38ac6766346fe2e30269dc97bc42f0f35",
+      "nexusSha256After": "bb7774ac1413fd31150afecad3563ed38ac6766346fe2e30269dc97bc42f0f35",
+      "nexusUnchanged": true
+    }
+  },
+  "security": {
+    "status": "pass",
+    "publicSnapshotFiles": 0,
+    "outputPublicRejected": {
+      "exitCode": 1,
+      "outputExists": false,
+      "stderr": "\n[P2.0-A.1] CRM 导入失败: 安全边界：拒绝把 数据集 写入受保护目录。\n"
+    },
+    "outputSymlinkRejected": {
+      "exitCode": 1,
+      "outputExists": false,
+      "stderr": "\n[P2.0-A.1] CRM 导入失败: 安全边界：拒绝把 数据集 写入符号链接目标。\n"
+    },
+    "manifestTraversalRejected": {
+      "exitCode": 1,
+      "outputExists": false,
+      "stderr": "\n[P2.0-A.1] CRM 导入失败: files[0].path 必须是仓库相对路径（traversal）。\n"
+    },
+    "inputSymlinkRejected": {
+      "exitCode": 1,
+      "outputExists": false,
+      "stderr": "\n[P2.0-A.1] CRM 导入失败: snapshot-manifest 与 source-snapshot 冲突：source-snapshot 含 1 个符号链接；清单文件是符号链接：synthetic/shared/escape.ts；SHA-256 不匹配 1 个；byte_count 声明 2657，实测 2444。这是矛盾证据，--allow-partial 不能绕过。\n"
+    },
+    "network": {
+      "staticNetworkImports": 0,
+      "debugRunCode": 0,
+      "debugLog": "",
+      "modelCallsFromPipeline": 0
+    },
+    "sharing": {
+      "privacyPassed": true,
+      "containsInternalSymbols": true,
+      "internalSymbolCount": 11,
+      "publicShareable": false,
+      "note": "隐私体检只检查绝对路径与凭据字段；通过不等于可以公开分享。输出仍包含内部符号、相对路径与架构关系，默认只保存在私有目录。"
+    },
+    "distinction": "隐私体检通过 != 可公开分享；输出仍包含内部符号、相对路径与架构关系。"
+  },
+  "limitations": [
+    "所有 CRM 数据与 Git 提交都是合成 fixture，不是真实 CRM 扫描结果。",
+    "没有异机备份证据；本机备份和 Windows 实机验收仍未完成。",
+    "浏览器 UI 尚未接入 CRM 仓库切换器；本轮只验证数据层与本地 CLI。"
+  ],
+  "status": "pass"
+}

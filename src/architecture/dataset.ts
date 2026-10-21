@@ -1567,8 +1567,29 @@ export function parseAtlasDataset(rawInput: unknown): AtlasDataset {
   if (!isRecord(raw.diagnostics)) {
     throw new AtlasDataError('ATLAS_DATASET_INVALID', 'diagnostics 缺失。');
   }
+  const rawCounts = isRecord(raw.diagnostics.counts) ? raw.diagnostics.counts : {};
+  // P2.0-A.1 增加统计分区字段；旧快照不重写，读取时按节点补算缺失维度。
   const diagnostics = {
     ...raw.diagnostics,
+    counts: {
+      ...rawCounts,
+      internalNodes:
+        typeof rawCounts.internalNodes === 'number'
+          ? rawCounts.internalNodes
+          : nodes.filter((node) => node.scope !== 'external').length,
+      assignedNodes:
+        typeof rawCounts.assignedNodes === 'number'
+          ? rawCounts.assignedNodes
+          : nodes.filter((node) => node.moduleId !== null).length,
+      unassignedNodes:
+        typeof rawCounts.unassignedNodes === 'number'
+          ? rawCounts.unassignedNodes
+          : nodes.filter((node) => node.moduleId === null).length,
+      multiModuleNodes:
+        typeof rawCounts.multiModuleNodes === 'number'
+          ? rawCounts.multiModuleNodes
+          : nodes.filter((node) => node.moduleIds.length > 1).length,
+    },
     reviewCounts: isRecord(raw.diagnostics.reviewCounts)
       ? raw.diagnostics.reviewCounts
       : reviewCountsFor(relations as AtlasRelation[]),

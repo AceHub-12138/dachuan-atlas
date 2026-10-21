@@ -3,8 +3,10 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
   evaluateImportProvenance,
+  notAttemptedGitHistory,
   parseGraphReport,
   readSnapshotManifest,
+  type GitHistorySummary,
 } from '../../src/architecture/import-provenance';
 
 const FIXTURE = join(process.cwd(), 'tests', 'fixtures', 'crm-synthetic');
@@ -18,6 +20,23 @@ const manifest = readSnapshotManifest(rawManifest, {
 });
 const report = parseGraphReport(reportText)!;
 
+const verifiedHistory: GitHistorySummary = {
+  status: 'verified',
+  commit: 'cafebabecafebabecafebabecafebabecafebabe',
+  commitExists: true,
+  commitIsCommit: true,
+  manifestFiles: 8,
+  matchedFiles: 8,
+  mismatchedFiles: [],
+  missingInGit: [],
+  missingInSnapshot: [],
+  snapshotFilesNotInManifest: [],
+  gitFilesNotInManifest: 0,
+  gitFilesNotInManifestSample: [],
+  symlinksInSnapshot: [],
+  note: '合成 Git 历史核实通过。',
+};
+
 function evaluate(overrides: Partial<Parameters<typeof evaluateImportProvenance>[0]> = {}) {
   return evaluateImportProvenance({
     declared: { repositoryId: 'crm', repositoryName: 'CRM', system: 'crm' },
@@ -25,14 +44,17 @@ function evaluate(overrides: Partial<Parameters<typeof evaluateImportProvenance>
     report,
     manifestVerified: true,
     reportPresent: true,
+    gitHistory: notAttemptedGitHistory(),
     ...overrides,
   });
 }
 
 describe('Graphify 三件套来源核对', () => {
-  it('清单、报告与声明一致时返回 complete', () => {
-    const provenance = evaluate();
+  it('清单一致且 Git 历史核实通过时才是 complete', () => {
+    const provenance = evaluate({ gitHistory: verifiedHistory });
     expect(provenance.complete).toBe(true);
+    expect(provenance.manifestConsistency).toBe('verified');
+    expect(provenance.historyVerification.status).toBe('verified');
     expect(provenance.commit).toBe('cafebabecafebabecafebabecafebabecafebabe');
     expect(provenance.commitSource).toBe('manifest');
     expect(provenance.repositoryId).toBe('crm');
@@ -40,6 +62,41 @@ describe('Graphify 三件套来源核对', () => {
     expect(provenance.generatedAt).toBe('2026-10-20');
     expect(provenance.scannedAt).toBe('2026-10-19T09:30:00Z');
     expect(provenance.issues.filter((issue) => issue.severity === 'warning')).toEqual([]);
+  });
+
+  it('清单自洽但未提供 Git 仓库时只是 partial，不冒充完整历史', () => {
+    const provenance = evaluate();
+    expect(provenance.manifestConsistency).toBe('verified');
+    expect(provenance.historyVerification.status).toBe('not_attempted');
+    expect(provenance.complete).toBe(false);
+    expect(provenance.issues.map((issue) => issue.code)).toContain('HISTORY_NOT_VERIFIED');
+  });
+
+  it('Git 历史只能对应部分文件时降级为 partial', () => {
+    const provenance = evaluate({
+      gitHistory: {
+        ...verifiedHistory,
+        status: 'partial',
+        matchedFiles: 7,
+        mismatchedFiles: ['synthetic/customer/customer-service.ts'],
+      },
+    });
+    expect(provenance.manifestConsistency).toBe('verified');
+    expect(provenance.complete).toBe(false);
+    expect(provenance.issues.map((issue) => issue.code)).toContain('HISTORY_PARTIAL');
+  });
+
+  it('Git 历史核实失败是硬错误，不能被 --allow-partial 掩盖', () => {
+    expect(() =>
+      evaluate({
+        gitHistory: { ...verifiedHistory, status: 'failed', commitExists: false },
+      }),
+    ).toThrow(/Git 历史核实失败/);
+    expect(() =>
+      evaluate({
+        gitHistory: { ...verifiedHistory, commit: 'd'.repeat(40) },
+      }),
+    ).toThrow(/Git 核实提交/);
   });
 
   it('报告解析只采用明确字段，不猜自然语言', () => {
@@ -171,22 +228,32 @@ describe('Graphify 三件套来源核对', () => {
     ).toThrow(/清单自身不一致/);
   });
 
-  it('生成时间或扫描时间冲突只降级为 partial，不伪造一致', () => {
-    const generated = evaluate({
-      report: { ...report, generatedAt: '2026-10-21' },
-    });
-    expect(generated.complete).toBe(false);
-    expect(generated.issues.map((issue) => issue.code)).toContain(
-      'PROVENANCE_GENERATED_AT_MISMATCH',
-    );
+  it('生成时间或扫描时间冲突是矛盾证据，不能降级为 partial', () => {
+    expect(() =>
+      evaluate({
+        report: { ...report, generatedAt: '2026-10-21' },
+      }),
+    ).toThrow(/生成时间.*冲突/);
 
-    const scanned = evaluate({
-      report: { ...report, scannedAt: '2026-10-19T10:00:00Z' },
+    expect(() =>
+      evaluate({
+        report: { ...report, scannedAt: '2026-10-19T10:00:00Z' },
+      }),
+    ).toThrow(/扫描时间.*冲突/);
+  });
+
+  it('同一时刻的不同时区写法不构成冲突', () => {
+    const provenance = evaluate({
+      report: { ...report, scannedAt: '2026-10-19T01:30:00-08:00' },
+      gitHistory: verifiedHistory,
     });
-    expect(scanned.complete).toBe(false);
-    expect(scanned.issues.map((issue) => issue.code)).toContain(
-      'PROVENANCE_SCANNED_AT_MISMATCH',
-    );
+    expect(provenance.complete).toBe(true);
+  });
+
+  it('清单内部哈希/字节数冲突是硬错误', () => {
+    expect(() =>
+      evaluate({ manifestIntegrity: 'mismatch' }),
+    ).toThrow(/矛盾证据/);
   });
 
   it('空清单不能算作完整校验', () => {

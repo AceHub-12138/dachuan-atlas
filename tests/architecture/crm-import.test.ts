@@ -119,7 +119,10 @@ describe('CRM 合成快照导入（P2.0-A）', () => {
     expect(dataset.snapshot?.commit).toBe('cafebabecafebabecafebabecafebabecafebabe');
     expect(dataset.snapshot?.commitShort).toBe('cafebab');
     expect(dataset.snapshot?.generatedAt).toBe('2026-10-20');
-    expect(dataset.snapshot?.importStatus).toBe('complete');
+    // 合成 fixture 的提交是虚构的，且本单测没有 Git 仓库；清单自洽只能证明
+    // 内部一致性，不能把历史核实写成 complete。
+    expect(dataset.snapshot?.manifest?.status).toBe('verified');
+    expect(dataset.snapshot?.importStatus).toBe('partial');
     expect(dataset.repositories?.[0]?.snapshots[0]?.snapshotKey).toBe(
       'crm@cafebab@2026-10-20',
     );
@@ -160,6 +163,35 @@ describe('CRM 合成快照导入（P2.0-A）', () => {
     expect(dataset.diagnostics.counts.modulesUnassigned).toBe(2);
     expect(dataset.diagnostics.issues.some((issue) => issue.code === 'GRAPHIFY_MODULE_UNCLASSIFIED')).toBe(true);
     expect(dataset.diagnostics.issues.some((issue) => issue.code === 'IMPORT_SYNTHETIC_FIXTURE')).toBe(true);
+  });
+
+  it('节点统计分区可解释：12 = 11 内部 + 1 外部，产品归属 9 + 2', () => {
+    const dataset = buildDataset();
+    const counts = dataset.diagnostics.counts;
+    expect(counts.nodes).toBe(12);
+    expect(counts.internalNodes).toBe(11);
+    expect(counts.externalNodes).toBe(1);
+    expect(counts.productNodes).toBe(11);
+    expect(counts.testNodes).toBe(0);
+    expect(counts.toolingNodes).toBe(0);
+    expect(counts.nodes).toBe(
+      counts.productNodes + counts.testNodes + counts.toolingNodes + counts.externalNodes,
+    );
+    expect(counts.nodes).toBe(counts.internalNodes + counts.externalNodes);
+    expect(counts.productNodes).toBe(counts.modulesAssigned + counts.modulesUnassigned);
+    expect(counts.assignedNodes).toBe(9);
+    expect(counts.unassignedNodes).toBe(3);
+    expect(counts.nodes).toBe(counts.assignedNodes + counts.unassignedNodes);
+    expect(counts.multiModuleNodes).toBe(0);
+
+    const partition = dataset.diagnostics.issues.find(
+      (issue) => issue.code === 'GRAPHIFY_NODE_PARTITION',
+    );
+    expect(partition?.message).toContain('12 个已导入节点');
+    expect(partition?.message).toContain('11 个内部节点');
+    expect(partition?.message).toContain('1 个外部节点');
+    expect(partition?.message).toContain('9/11');
+    expect(partition?.message).toContain('多模块归属 0');
   });
 
   it('没有 AI/人工复核清单时，所有关系保持待核实且不推断运行时', () => {

@@ -50,6 +50,30 @@ export interface ProvenanceIssue {
   message: string;
 }
 
+export type ManifestIntegrity = 'verified' | 'missing' | 'incomplete' | 'mismatch';
+
+/**
+ * 清单内部一致性与 Git 历史核实是两个独立维度。
+ * `not_attempted` 不冒充通过；`partial` 表示只能对应一部分文件；
+ * `failed` 表示提交不存在、不是 commit 对象或 Git 读取失败。
+ */
+export interface GitHistorySummary {
+  status: 'verified' | 'partial' | 'failed' | 'not_attempted';
+  commit: string | null;
+  commitExists: boolean | null;
+  commitIsCommit: boolean | null;
+  manifestFiles: number;
+  matchedFiles: number;
+  mismatchedFiles: string[];
+  missingInGit: string[];
+  missingInSnapshot: string[];
+  snapshotFilesNotInManifest: string[];
+  gitFilesNotInManifest: number;
+  gitFilesNotInManifestSample: string[];
+  symlinksInSnapshot: string[];
+  note: string;
+}
+
 export interface ImportProvenance {
   commit: string;
   commitSource: 'manifest' | 'report' | 'unknown';
@@ -58,6 +82,14 @@ export interface ImportProvenance {
   repositoryId: string;
   repositoryName: string;
   repositoryIdentitySource: 'manifest' | 'report' | 'declared';
+  /** 只描述 snapshot-manifest 与 source-snapshot 的内部一致性。 */
+  manifestConsistency: 'verified' | 'partial';
+  /** 只描述本地 Git 历史核实；与清单一致性分开报告。 */
+  historyVerification: GitHistorySummary;
+  /**
+   * 只有“清单一致 + Git 历史核实通过”才为 true。
+   * 缺少 Git 仓库时不会因为清单自洽而冒充完整历史。
+   */
   complete: boolean;
   issues: ProvenanceIssue[];
 }
@@ -72,7 +104,31 @@ export interface EvaluateProvenanceInput {
   report: GraphReportMetadata | null;
   expectedCommit?: string | null;
   manifestVerified: boolean;
+  /** 显式区分“缺失证据”和“矛盾证据”；mismatch 是硬错误。 */
+  manifestIntegrity?: ManifestIntegrity;
   reportPresent: boolean;
+  gitHistory?: GitHistorySummary | null;
+}
+
+export function notAttemptedGitHistory(
+  note = '未提供本地 Git 仓库；无法核实提交对象与历史文件一致性。',
+): GitHistorySummary {
+  return {
+    status: 'not_attempted',
+    commit: null,
+    commitExists: null,
+    commitIsCommit: null,
+    manifestFiles: 0,
+    matchedFiles: 0,
+    mismatchedFiles: [],
+    missingInGit: [],
+    missingInSnapshot: [],
+    snapshotFilesNotInManifest: [],
+    gitFilesNotInManifest: 0,
+    gitFilesNotInManifestSample: [],
+    symlinksInSnapshot: [],
+    note,
+  };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -289,13 +345,33 @@ export function parseGraphReport(text: string | null | undefined): GraphReportMe
 }
 
 /**
- * 合并清单与报告，拒绝任何不一致的仓库/提交事实。
- * 完整状态必须同时满足：清单存在、逐文件校验通过、提交来自清单、仓库身份来自清单、
- * 报告存在。任何一项缺失都只返回 partial，由调用方决定是否用 --allow-partial 继续。
+ * 合并清单、报告与 Git 历史核实结果。
+ *
+ * 硬错误（任何情况下都不能用 --allow-partial 绕过）：
+ * - 清单与 source-snapshot 哈希/字节数冲突；
+ * - 提交、仓库身份、系统身份冲突；
+ * - 清单与报告的扫描/生成时间冲突；
+ * - Git 提交不存在、不是 commit 对象或 Git 读取失败。
+ *
+ * 缺失证据（显式 --allow-partial 下可保持 partial）：
+ * - 缺少清单或报告；
+ * - 清单为空或未校验；
+ * - 提交/仓库身份只来自声明或报告；
+ * - 未提供 Git 仓库，或 Git 只能对应部分文件。
  */
 export function evaluateImportProvenance(input: EvaluateProvenanceInput): ImportProvenance {
   const issues: ProvenanceIssue[] = [];
-  let complete = true;
+  let manifestConsistency: ImportProvenance['manifestConsistency'] = 'verified';
+  // 文档链完整性 = 清单 + 提交 + 仓库身份 + 报告；Git 历史是另一个独立维度。
+  let documentaryConsistency: ImportProvenance['manifestConsistency'] = 'verified';
+
+  const degradeManifest = () => {
+    manifestConsistency = 'partial';
+    documentaryConsistency = 'partial';
+  };
+  const degradeDocumentary = () => {
+    documentaryConsistency = 'partial';
+  };
 
   let expectedCommit: string | null = null;
   if (input.expectedCommit !== undefined && input.expectedCommit !== null) {
@@ -343,18 +419,29 @@ export function evaluateImportProvenance(input: EvaluateProvenanceInput): Import
     );
   }
 
+  const integrity: ManifestIntegrity =
+    input.manifestIntegrity ??
+    (!input.manifest ? 'missing' : input.manifestVerified ? 'verified' : 'incomplete');
+
+  if (integrity === 'mismatch') {
+    throw new AtlasDataError(
+      'GRAPHIFY_MANIFEST_MISMATCH',
+      'snapshot-manifest 与 source-snapshot 存在哈希、字节数或符号链接冲突；这是矛盾证据，--allow-partial 不能绕过。',
+    );
+  }
+
   const commit = input.manifest?.commit ?? input.report?.commit ?? 'unknown';
   const commitSource: ImportProvenance['commitSource'] =
     commit === 'unknown' ? 'unknown' : input.manifest?.commit ? 'manifest' : 'report';
   if (commit === 'unknown') {
-    complete = false;
+    degradeDocumentary();
     issues.push({
       code: 'COMMIT_UNKNOWN',
       severity: 'warning',
       message: '清单与报告都没有完整提交 SHA；快照只能标记 unknown/partial。',
     });
   } else if (commitSource === 'report') {
-    complete = false;
+    degradeDocumentary();
     issues.push({
       code: 'COMMIT_REPORT_ONLY',
       severity: 'warning',
@@ -362,22 +449,24 @@ export function evaluateImportProvenance(input: EvaluateProvenanceInput): Import
     });
   }
 
-  if (!input.manifest) {
-    complete = false;
+  if (integrity === 'missing' || !input.manifest) {
+    degradeManifest();
     issues.push({
       code: 'MANIFEST_MISSING',
       severity: 'warning',
       message: '缺少 snapshot-manifest.json；无法验证源文件完整性与清单提交。',
     });
-  } else if (!input.manifestVerified) {
-    complete = false;
+  } else if (integrity === 'incomplete' || !input.manifestVerified) {
+    degradeManifest();
     issues.push({
-      code: 'MANIFEST_UNVERIFIED',
+      code: input.manifest.files.length ? 'MANIFEST_UNVERIFIED' : 'MANIFEST_EMPTY',
       severity: 'warning',
-      message: 'snapshot-manifest 未通过逐文件 SHA-256 校验；导入只能 partial。',
+      message: input.manifest.files.length
+        ? 'snapshot-manifest 未通过逐文件 SHA-256 校验；导入只能 partial。'
+        : 'snapshot-manifest 没有文件条目；不能把“空清单”当作完整校验。',
     });
   } else if (!input.manifest.files.length) {
-    complete = false;
+    degradeManifest();
     issues.push({
       code: 'MANIFEST_EMPTY',
       severity: 'warning',
@@ -393,14 +482,14 @@ export function evaluateImportProvenance(input: EvaluateProvenanceInput): Import
         input.report.scannedAt),
   );
   if (!input.reportPresent || !input.report) {
-    complete = false;
+    degradeDocumentary();
     issues.push({
       code: 'REPORT_MISSING',
       severity: 'warning',
       message: '缺少或无法解析 GRAPH_REPORT.md；生成时间与扫描记录无法交叉核对。',
     });
   } else if (!reportHasMetadata) {
-    complete = false;
+    degradeDocumentary();
     issues.push({
       code: 'REPORT_NO_METADATA',
       severity: 'warning',
@@ -415,7 +504,7 @@ export function evaluateImportProvenance(input: EvaluateProvenanceInput): Import
         ? 'report'
         : 'declared';
   if (repositoryIdentitySource !== 'manifest') {
-    complete = false;
+    degradeDocumentary();
     issues.push({
       code: 'REPOSITORY_IDENTITY_DECLARED_ONLY',
       severity: 'warning',
@@ -432,30 +521,53 @@ export function evaluateImportProvenance(input: EvaluateProvenanceInput): Import
     input.report?.generatedAt &&
     input.manifest.generatedAt.slice(0, 10) !== input.report.generatedAt.slice(0, 10)
   ) {
-    complete = false;
-    issues.push({
-      code: 'PROVENANCE_GENERATED_AT_MISMATCH',
-      severity: 'warning',
-      message: `清单生成时间 ${input.manifest.generatedAt} 与报告 ${input.report.generatedAt} 不一致。`,
-    });
+    throw new AtlasDataError(
+      'GRAPHIFY_PROVENANCE_TIME_CONFLICT',
+      `清单生成时间 ${input.manifest.generatedAt} 与报告 ${input.report.generatedAt} 冲突；矛盾证据不能用 --allow-partial 绕过。`,
+    );
   }
 
   const scannedAt = input.manifest?.scannedAt ?? input.report?.scannedAt ?? null;
   if (
     input.manifest?.scannedAt &&
     input.report?.scannedAt &&
-    input.manifest.scannedAt !== input.report.scannedAt
+    normalizeTimestamp(input.manifest.scannedAt) !== normalizeTimestamp(input.report.scannedAt)
   ) {
-    complete = false;
-    issues.push({
-      code: 'PROVENANCE_SCANNED_AT_MISMATCH',
-      severity: 'warning',
-      message: `清单扫描时间 ${input.manifest.scannedAt} 与报告 ${input.report.scannedAt} 不一致。`,
-    });
+    throw new AtlasDataError(
+      'GRAPHIFY_PROVENANCE_TIME_CONFLICT',
+      `清单扫描时间 ${input.manifest.scannedAt} 与报告 ${input.report.scannedAt} 冲突；矛盾证据不能用 --allow-partial 绕过。`,
+    );
   }
 
   for (const note of input.report?.notes ?? []) {
     issues.push({ code: 'REPORT_NOTE', severity: 'info', message: note });
+  }
+
+  const historyVerification = input.gitHistory ?? notAttemptedGitHistory();
+  if (historyVerification.status === 'failed') {
+    throw new AtlasDataError(
+      'GRAPHIFY_GIT_HISTORY_FAILED',
+      `本地 Git 历史核实失败：${historyVerification.note}；不能把无法核实的提交当作历史事实。`,
+    );
+  }
+  if (historyVerification.commit && commit !== 'unknown' && historyVerification.commit !== commit) {
+    throw new AtlasDataError(
+      'GRAPHIFY_COMMIT_MISMATCH',
+      `Git 核实提交 ${shortCommit(historyVerification.commit)} 与快照提交 ${shortCommit(commit)} 不一致。`,
+    );
+  }
+  if (historyVerification.status === 'not_attempted') {
+    issues.push({
+      code: 'HISTORY_NOT_VERIFIED',
+      severity: 'warning',
+      message: historyVerification.note,
+    });
+  } else if (historyVerification.status === 'partial') {
+    issues.push({
+      code: 'HISTORY_PARTIAL',
+      severity: 'warning',
+      message: `Git 历史只核实 ${historyVerification.matchedFiles}/${historyVerification.manifestFiles} 个清单文件；缺失 ${historyVerification.missingInGit.length}、内容不一致 ${historyVerification.mismatchedFiles.length}。`,
+    });
   }
 
   return {
@@ -467,7 +579,16 @@ export function evaluateImportProvenance(input: EvaluateProvenanceInput): Import
     repositoryName:
       input.manifest?.repositoryName ?? input.report?.repositoryName ?? input.declared.repositoryName,
     repositoryIdentitySource,
-    complete,
+    manifestConsistency,
+    historyVerification,
+    complete:
+      documentaryConsistency === 'verified' && historyVerification.status === 'verified',
     issues,
   };
+}
+
+/** 扫描时间允许 Z / +00:00 等同一时刻的不同写法。 */
+function normalizeTimestamp(value: string): string {
+  const parsed = Date.parse(value);
+  return Number.isNaN(parsed) ? value.trim() : `@${parsed}`;
 }

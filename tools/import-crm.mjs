@@ -1,28 +1,43 @@
 #!/usr/bin/env node
 /**
- * CRM Graphify → ATLAS 本地导入 CLI（P2.0-A）。
+ * CRM Graphify → ATLAS 本地导入 CLI（P2.0-A / P2.0-A.1）。
  *
  * 只读取用户指定的本地目录：
  *   graph.json / snapshot-manifest.json / GRAPH_REPORT.md / source-snapshot/
  * 以及一个显式的 repository profile。不做网络请求，不上传任何内容。
  *
+ * P2.0-A.1 来源策略：
+ * - 缺失证据（清单/报告/提交缺失）可在显式 --allow-partial 下保持 partial；
+ * - 矛盾证据（哈希、字节数、提交、仓库身份、时间、路径越界、符号链接）
+ *   一律硬失败，--allow-partial 不能绕过；
+ * - 本地 Git 历史核实是独立维度，清单自洽不等于历史已核实；
+ * - 只有清单一致 + Git 历史核实通过，导入状态才是 complete。
+ *
  * 安全边界：
  * - 真实 CRM（profile.synthetic=false）只能写入 local-data/crm/ 或项目外目录；
- * - 输出先按 ATLAS Schema 重新解析，再检查隐私体检，全部通过才原子写入；
+ * - 输出先按 ATLAS Schema 重新解析，再检查隐私体检，全部通过才成对原子写入；
  * - 失败时不覆盖已有文件，也不影响 NEXUS 的 local-data。
  */
-import { createHash } from 'node:crypto';
-import { mkdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
+import { readFile, realpath, stat } from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
+import { verifyGitHistory } from './git-provenance.mjs';
+import {
+  assertSafeOutput,
+  atomicWriteOutputs,
+  isInsideOrEqual,
+  realpathOrNull,
+  sha256,
+  verifyManifestFiles,
+} from './import-safety.mjs';
 
 const HERE = fileURLToPath(new URL('.', import.meta.url));
 const ROOT = path.resolve(HERE, '..');
 const BUILD = path.join(ROOT, '.tools-build', 'architecture');
 
 function usage() {
-  console.log(`DACHUAN ATLAS · CRM 本地历史快照导入（P2.0-A）
+  console.log(`DACHUAN ATLAS · CRM 本地历史快照导入（P2.0-A.1）
 
 用法:
   npm run import:crm -- --graphify <目录> --profile <profile.json> [选项]
@@ -34,16 +49,18 @@ function usage() {
 选项:
   --out <path>            输出 ATLAS 数据集；默认 local-data/crm/crm-<日期>-<提交>.atlas.json
   --report <path>         导入审计报告；默认与输出同目录
+  --git-repo <path>       本地 Git 仓库；只读核实提交对象与历史文件一致性
   --expect-commit <sha>   校验完整 40 位提交 SHA
   --repository-id <id>    期望仓库 ID（默认 crm；必须与 profile 一致）
-  --allow-partial         来源核对未达完整状态时仍导入，并标记 partial
+  --allow-partial         仅在“缺失证据”时允许 partial；矛盾证据仍强制失败
   --allow-synthetic       允许 synthetic profile（只用于管线测试）
   --dry-run               只转换与校验，不写文件
   --help                  显示帮助
 
-示例（合成 fixture，不含真实 CRM 数据）:
+示例（合成 fixture + 临时 Git 仓库，不含真实 CRM 数据）:
   npm run import:crm -- --graphify tests/fixtures/crm-synthetic \\
-    --profile tests/fixtures/crm-synthetic/profile.json --allow-synthetic --dry-run
+    --profile tests/fixtures/crm-synthetic/profile.json \\
+    --git-repo /path/to/synthetic-git --allow-synthetic
 `);
 }
 
@@ -76,6 +93,9 @@ function parseArgs(argv) {
       case '--report':
         args.report = next();
         break;
+      case '--git-repo':
+        args.gitRepo = next();
+        break;
       case '--expect-commit':
         args.expectCommit = next();
         break;
@@ -100,10 +120,6 @@ function parseArgs(argv) {
     }
   }
   return args;
-}
-
-function sha256(buffer) {
-  return createHash('sha256').update(buffer).digest('hex');
 }
 
 function relDisplay(absolute) {
@@ -132,75 +148,12 @@ async function readJsonFile(file, label, required = true) {
   }
 }
 
-function isInside(directory, file) {
-  const relative = path.relative(directory, file);
-  return relative !== '' && !relative.startsWith('..') && !path.isAbsolute(relative);
-}
-
-function assertSafeOutput(file, profile, label) {
-  const publicDir = path.join(ROOT, 'public');
-  const distDir = path.join(ROOT, 'dist');
-  if (isInside(publicDir, file) || isInside(distDir, file)) {
-    throw new Error(`安全边界：拒绝把 ${label} 写入 public/ 或 dist/。`);
+async function assertInputInside(file, directory, label) {
+  const realFile = await realpathOrNull(file);
+  if (!realFile) throw new Error(`${label} 不存在或无法读取。`);
+  if (!isInsideOrEqual(directory, realFile)) {
+    throw new Error(`安全边界：${label} 通过符号链接指向输入目录之外。`);
   }
-  if (profile.synthetic) return;
-  const localCrm = path.join(ROOT, 'local-data', 'crm');
-  if (isInside(ROOT, file) && !isInside(localCrm, file)) {
-    throw new Error(
-      `安全边界：真实 CRM ${label} 只能写入 local-data/crm/ 或项目外目录；拒绝写入仓库其他位置。`,
-    );
-  }
-}
-
-async function verifyManifestFiles(manifest, snapshotRoot) {
-  const mismatches = [];
-  const missing = [];
-  let verifiedFiles = 0;
-  let measuredBytes = 0;
-  for (const entry of manifest.files) {
-    const absolute = path.resolve(snapshotRoot, entry.path);
-    const outside = path.relative(snapshotRoot, absolute);
-    if (outside.startsWith('..') || path.isAbsolute(outside)) {
-      mismatches.push(entry.path);
-      continue;
-    }
-    try {
-      const data = await readFile(absolute);
-      measuredBytes += data.length;
-      if (sha256(data) === entry.sha256) verifiedFiles += 1;
-      else mismatches.push(entry.path);
-    } catch {
-      missing.push(entry.path);
-    }
-  }
-  const declaredFileCount = manifest.fileCount ?? manifest.files.length;
-  const countOk = declaredFileCount === manifest.files.length;
-  const bytesOk = manifest.byteCount === null || manifest.byteCount === measuredBytes;
-  return {
-    fileCount: manifest.files.length,
-    declaredFileCount,
-    declaredByteCount: manifest.byteCount,
-    measuredBytes,
-    verifiedFiles,
-    mismatches,
-    missing,
-    countOk,
-    bytesOk,
-    ok:
-      mismatches.length === 0 &&
-      missing.length === 0 &&
-      countOk &&
-      bytesOk &&
-      verifiedFiles === manifest.files.length,
-  };
-}
-
-async function atomicWrite(file, content) {
-  await mkdir(path.dirname(file), { recursive: true });
-  const temporary = `${file}.tmp`;
-  await writeFile(temporary, content, 'utf8');
-  await rm(file, { force: true });
-  await rename(temporary, file);
 }
 
 async function main() {
@@ -239,7 +192,9 @@ async function main() {
   } catch {
     throw new Error(`--graphify 路径不存在：${path.basename(graphifyInput)}。`);
   }
-  const graphifyDir = inputStat.isDirectory() ? graphifyInput : path.dirname(graphifyInput);
+  const graphifyDir = await realpath(
+    inputStat.isDirectory() ? graphifyInput : path.dirname(graphifyInput),
+  );
 
   const profilePath = path.resolve(process.cwd(), args.profile);
   const profileRaw = await readJsonFile(profilePath, 'CRM profile');
@@ -250,6 +205,10 @@ async function main() {
   });
 
   const graphPath = path.join(graphifyDir, 'graph.json');
+  const manifestPath = path.join(graphifyDir, 'snapshot-manifest.json');
+  const reportPath = path.join(graphifyDir, 'GRAPH_REPORT.md');
+
+  await assertInputInside(graphPath, graphifyDir, 'graph.json');
   const graphText = await readTextFile(graphPath, 'graph.json');
   let graph;
   try {
@@ -258,8 +217,12 @@ async function main() {
     throw new Error('graph.json 不是合法 JSON。');
   }
 
-  const manifestPath = path.join(graphifyDir, 'snapshot-manifest.json');
-  const reportPath = path.join(graphifyDir, 'GRAPH_REPORT.md');
+  if (await realpathOrNull(manifestPath)) {
+    await assertInputInside(manifestPath, graphifyDir, 'snapshot-manifest.json');
+  }
+  if (await realpathOrNull(reportPath)) {
+    await assertInputInside(reportPath, graphifyDir, 'GRAPH_REPORT.md');
+  }
   const manifestText = await readTextFile(manifestPath, 'snapshot-manifest.json', false);
   const reportText = await readTextFile(reportPath, 'GRAPH_REPORT.md', false);
   let manifestRaw = null;
@@ -294,31 +257,40 @@ async function main() {
       manifest,
       path.join(graphifyDir, 'source-snapshot'),
     );
-    if (!verification.ok && !args.allowPartial) {
-      const details = [
-        verification.mismatches.length
-          ? `SHA-256 不匹配 ${verification.mismatches.length} 个`
-          : null,
-        verification.missing.length
-          ? `文件缺失 ${verification.missing.length} 个`
-          : null,
-        !verification.countOk
-          ? `file_count 声明 ${verification.declaredFileCount}，实际 ${verification.fileCount}`
-          : null,
-        !verification.bytesOk
-          ? `byte_count 声明 ${verification.declaredByteCount}，实测 ${verification.measuredBytes}`
-          : null,
-      ].filter(Boolean);
+    // 矛盾证据：无论是否 --allow-partial，都必须失败。
+    if (verification.hardFailure) {
       throw new Error(
-        `snapshot-manifest 校验失败：${details.join('；')}。如只做结构转换，请加 --allow-partial。`,
+        `snapshot-manifest 与 source-snapshot 冲突：${verification.hardFailures.join('；')}。这是矛盾证据，--allow-partial 不能绕过。`,
       );
     }
     if (!verification.ok) {
-      console.warn('[P2.0-A] 警告：清单未通过逐文件校验，按 partial 导入。');
+      console.warn('[P2.0-A.1] 警告：清单未形成完整校验，按缺失证据处理（仍需 --allow-partial）。');
     }
   }
 
   const report = provenanceTools.parseGraphReport(reportText);
+  const provenanceCommit =
+    manifest?.commit ?? report?.commit ?? args.expectCommit ?? null;
+
+  let gitHistory = provenanceTools.notAttemptedGitHistory(
+    '未提供 --git-repo；snapshot-manifest 自洽不等于 Git 历史已核实。',
+  );
+  if (args.gitRepo) {
+    if (!provenanceCommit) {
+      throw new Error('提供 --git-repo 时必须存在完整 40 位提交 SHA；无法核实未知提交。');
+    }
+    const gitRepoPath = path.resolve(process.cwd(), args.gitRepo);
+    gitHistory = await verifyGitHistory({
+      repositoryPath: gitRepoPath,
+      commit: provenanceCommit,
+      manifest: manifest ?? { files: [], fileCount: 0 },
+      snapshotRoot: path.join(graphifyDir, 'source-snapshot'),
+    });
+    if (gitHistory.status === 'failed') {
+      throw new Error(`Git 历史核实失败：${gitHistory.note} 这不是可降级的缺失证据。`);
+    }
+  }
+
   const provenance = provenanceTools.evaluateImportProvenance({
     declared: {
       repositoryId: profile.repository.id,
@@ -329,16 +301,18 @@ async function main() {
     report,
     expectedCommit: args.expectCommit,
     manifestVerified: verification?.ok === true,
+    manifestIntegrity: verification?.integrity ?? (manifest ? 'incomplete' : 'missing'),
     reportPresent: reportText !== null,
+    gitHistory,
   });
 
   for (const issue of provenance.issues) {
     const prefix = issue.severity === 'warning' ? '警告' : '说明';
-    console.log(`[P2.0-A] ${prefix}: ${issue.message}`);
+    console.log(`[P2.0-A.1] ${prefix}: ${issue.message}`);
   }
   if (!provenance.complete && !args.allowPartial) {
     throw new Error(
-      '来源核对未达到完整状态（提交、仓库身份、逐文件清单或报告记录不完整）。如确认只做管线验证，请加 --allow-partial。',
+      '来源核对未达到完整状态（清单一致性、仓库身份、报告记录或 Git 历史核实不完整）。如确认只做管线验证，请加 --allow-partial。',
     );
   }
 
@@ -368,6 +342,7 @@ async function main() {
         importedAt,
         manifestVerification,
         importStatusOverride: provenance.complete ? 'complete' : 'partial',
+        historyVerified: gitHistory.status === 'verified',
       },
     },
     profile,
@@ -396,8 +371,10 @@ async function main() {
     ? path.resolve(process.cwd(), args.report)
     : path.join(path.dirname(outFile), `crm-import-report-${date}-${commitShort}.json`);
   if (outFile === reportFile) throw new Error('--out 与 --report 不能是同一个文件。');
-  assertSafeOutput(outFile, profile, '数据集');
-  assertSafeOutput(reportFile, profile, '导入报告');
+
+  const outputContext = { root: ROOT, graphifyDir, profilePath };
+  await assertSafeOutput({ file: outFile, profile, label: '数据集', ...outputContext });
+  await assertSafeOutput({ file: reportFile, profile, label: '导入报告', ...outputContext });
 
   const inputHashes = {
     graph: { file: 'graph.json', sha256: sha256(Buffer.from(graphText, 'utf8')) },
@@ -417,6 +394,9 @@ async function main() {
 
   const outputBytes = Buffer.byteLength(serialized, 'utf8');
   const outputHash = sha256(Buffer.from(serialized, 'utf8'));
+  const internalSymbols = reparsed.nodes.filter(
+    (node) => node.scope !== 'external' && typeof node.symbol === 'string' && node.symbol.length > 0,
+  ).length;
   const audit = {
     generatedAt: importedAt,
     profile: {
@@ -439,11 +419,21 @@ async function main() {
             verifiedFiles: verification.verifiedFiles,
             mismatches: verification.mismatches,
             missing: verification.missing,
+            symlinks: verification.symlinks,
             countOk: verification.countOk,
             bytesOk: verification.bytesOk,
+            hardFailure: verification.hardFailure,
+            hardFailures: verification.hardFailures,
+            integrity: verification.integrity,
             ok: verification.ok,
           }
         : null,
+      separation: {
+        manifestConsistency: provenance.manifestConsistency,
+        gitHistory: gitHistory.status,
+        completeRequiresBoth: true,
+        note: '清单内部一致与 Git 历史核实分别记录；complete 只在两者都通过时为 true。',
+      },
     },
     snapshot: {
       id: dataset.snapshot?.id,
@@ -459,6 +449,13 @@ async function main() {
       history: dataset.snapshot?.history,
     },
     counts: reparsed.diagnostics.counts,
+    partition: {
+      formula:
+        'nodes = internalNodes + externalNodes；internalNodes = productNodes + testNodes + toolingNodes；productNodes = modulesAssigned + modulesUnassigned；nodes = assignedNodes + unassignedNodes。multiModuleNodes 是重叠维度，不等同于未分类。',
+      issues: reparsed.diagnostics.issues
+        .filter((issue) => issue.code === 'GRAPHIFY_NODE_PARTITION')
+        .map((issue) => issue.message),
+    },
     relations: {
       total: reparsed.relations.length,
       repositoryScopes: reparsed.relations.reduce(
@@ -490,6 +487,14 @@ async function main() {
     })),
     diagnostics: reparsed.diagnostics.issues,
     privacy,
+    sharing: {
+      privacyPassed: privacy.status === 'pass',
+      containsInternalSymbols: internalSymbols > 0,
+      internalSymbolCount: internalSymbols,
+      publicShareable: false,
+      note:
+        '隐私体检只检查绝对路径与凭据字段；通过不等于可以公开分享。输出仍包含内部符号、相对路径与架构关系，默认只保存在私有目录。',
+    },
     output: args.dryRun
       ? null
       : {
@@ -499,44 +504,49 @@ async function main() {
         },
   };
 
-  console.log('[P2.0-A] 来源核对');
+  console.log('[P2.0-A.1] 来源核对');
   console.log(`  仓库: ${profile.repository.id} / ${profile.repository.name}${profile.synthetic ? '（合成验证）' : ''}`);
   console.log(`  提交: ${provenance.commit}（来源 ${provenance.commitSource}）`);
   console.log(`  扫描: ${provenance.scannedAt ?? '未记录'} / 生成: ${provenance.generatedAt ?? '未记录'}`);
   console.log(
     verification
-      ? `  清单: ${verification.verifiedFiles}/${verification.fileCount} 文件通过 SHA-256，${verification.measuredBytes} bytes`
+      ? `  清单: ${verification.verifiedFiles}/${verification.fileCount} 文件通过 SHA-256，${verification.measuredBytes} bytes，内部一致性 ${verification.integrity}`
       : '  清单: 未提供',
   );
-  console.log(`[P2.0-A] 转换结果`);
+  console.log(
+    `  Git 历史: ${gitHistory.status}（${gitHistory.note}）`,
+  );
+  console.log('[P2.0-A.1] 转换结果');
   console.log(
     `  节点 ${reparsed.diagnostics.counts.nodes} / 关系 ${reparsed.relations.length} / 模块 ${reparsed.modules.length}`,
   );
   console.log(
-    `  模块归属 ${reparsed.diagnostics.counts.modulesAssigned} / 未分类 ${reparsed.diagnostics.counts.modulesUnassigned}`,
+    `  模块归属 ${reparsed.diagnostics.counts.modulesAssigned}/${reparsed.diagnostics.counts.productNodes} 产品节点，未分类 ${reparsed.diagnostics.counts.modulesUnassigned}，外部 ${reparsed.diagnostics.counts.externalNodes}`,
   );
   console.log(
     `  runtimeVerified ${audit.relations.runtimeVerified} / runtimeScope=unknown ${audit.relations.runtimeScopes.unknown}`,
   );
   console.log(`  导入状态: ${dataset.snapshot?.importStatus ?? 'unknown'}`);
-  console.log(`  隐私体检: ${privacy.status}`);
+  console.log(`  隐私体检: ${privacy.status}；可公开分享: 否`);
 
   if (args.dryRun) {
-    console.log('[P2.0-A] --dry-run：未写入文件。');
+    console.log('[P2.0-A.1] --dry-run：未写入文件。');
     return;
   }
 
-  await atomicWrite(outFile, serialized);
-  await atomicWrite(reportFile, `${JSON.stringify(audit, null, 2)}\n`);
+  await atomicWriteOutputs([
+    { file: outFile, content: serialized },
+    { file: reportFile, content: `${JSON.stringify(audit, null, 2)}\n` },
+  ]);
 
-  console.log('[P2.0-A] 输出');
+  console.log('[P2.0-A.1] 输出');
   console.log(`  ${relDisplay(outFile)} (${(outputBytes / 1024).toFixed(1)} KB, sha256 ${outputHash.slice(0, 12)}…)`);
   console.log(`  ${relDisplay(reportFile)}`);
   console.log(`  重新解析校验: 通过（${reparsed.nodes.length} 节点 / ${reparsed.relations.length} 关系）`);
 }
 
 main().catch((error) => {
-  console.error(`\n[P2.0-A] CRM 导入失败: ${error instanceof Error ? error.message : String(error)}`);
+  console.error(`\n[P2.0-A.1] CRM 导入失败: ${error instanceof Error ? error.message : String(error)}`);
   if (error && typeof error === 'object' && 'details' in error && Array.isArray(error.details)) {
     for (const detail of error.details) console.error(`  - ${detail}`);
   }
