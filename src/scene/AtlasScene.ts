@@ -956,6 +956,9 @@ export class AtlasScene {
       };
     }
     const module = MODULE_BY_ID[hit.id as ModuleId];
+    const projectionNode = this.graphProjection?.nodes.find(
+      (node) => node.id === `module:${module.id}`,
+    );
     const isActive = this.activeModule === module.id;
     const meta = isActive
       ? realNexus
@@ -972,9 +975,9 @@ export class AtlasScene {
       key: `module:${module.id}`,
       kind: 'module',
       id: module.id,
-      title: module.name,
-      latin: module.latin,
-      description: module.description,
+      title: projectionNode?.label ?? module.name,
+      latin: projectionNode?.sublabel ?? module.latin,
+      description: projectionNode?.description || module.description,
       meta,
       available: module.available,
       color: module.color,
@@ -2603,6 +2606,11 @@ export class AtlasScene {
     // Keep labels out of the early camera approach so no ghost typography
     // appears while the modules are still growing out of the hub.
     if (alpha < 0.12) return;
+    const projectionNode = this.graphProjection?.nodes.find(
+      (node) => node.id === `module:${module.id}`,
+    );
+    const moduleName = projectionNode?.label ?? module.name;
+    const moduleLatin = projectionNode?.sublabel ?? module.latin;
     const y = position.y + 76;
     const textAlpha = alpha * (dimmed > 0.9 ? 0.9 + hover * 0.1 : 0.74 + hover * 0.12);
     ctx.save();
@@ -2624,11 +2632,11 @@ export class AtlasScene {
 
     ctx.fillStyle = `rgba(246, 248, 246, ${0.98 * textAlpha})`;
     ctx.font = `500 17px ${FONT_SANS}`;
-    ctx.fillText(module.name, position.x, y + 20);
+    ctx.fillText(moduleName, position.x, y + 20);
 
     ctx.fillStyle = rgba('#DFE8EC', 0.58 * textAlpha);
     ctx.font = `400 8.2px ${FONT_MONO}`;
-    ctx.fillText(module.latin, position.x, y + 38);
+    ctx.fillText(moduleLatin, position.x, y + 38);
 
     const realNexus = this.graphProjection?.sourceKind === 'graphify';
     const label =

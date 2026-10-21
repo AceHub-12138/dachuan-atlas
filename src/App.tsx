@@ -277,6 +277,7 @@ export default function App() {
           <NexusIntro
             muted={level === 'module'}
             dataSource={architecture.source}
+            modules={architecture.dataset.modules}
             graph={architecture.source === 'nexus-snapshot' ? moduleGraph : null}
             showGraphLinks={showGraphLinks}
             hasFlow={hasFlow}

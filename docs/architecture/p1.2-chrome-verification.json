@@ -40,8 +40,8 @@
   },
   "noPath": "当前图谱未发现关系路径这不表示两个模块没有关系，只表示当前标准数据集中没有找到已记录的关系路径；也可能被当前筛选条件排除。",
   "graphMetrics": {
-    "fps": 99.9,
-    "frameMs": 0.23,
+    "fps": 100.1,
+    "frameMs": 0.24,
     "nodes": 4,
     "edges": 3,
     "rafActive": true
@@ -111,9 +111,9 @@
     "innerWidth": 1440
   },
   "metrics": {
-    "fps": 99.9,
-    "frameMs": 1.55,
-    "p95FrameMs": 2.6,
+    "fps": 100,
+    "frameMs": 1.46,
+    "p95FrameMs": 2.5,
     "width": 1920,
     "height": 1080,
     "dpr": 1,
@@ -123,9 +123,9 @@
     "focused": true
   },
   "metrics4k": {
-    "fps": 99.9,
+    "fps": 100,
     "frameMs": 0.86,
-    "p95FrameMs": 0.9,
+    "p95FrameMs": 1,
     "width": 3840,
     "height": 2160,
     "dpr": 1,

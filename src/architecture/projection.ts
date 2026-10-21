@@ -112,6 +112,8 @@ export interface ProjectionNode {
   level: ProjectionLevel;
   label: string;
   sublabel: string;
+  /** 数据中的一句中文说明；没有时界面回退到构图说明。 */
+  description: string;
   moduleId: AtlasModuleId | null;
   /** 模块 ID、文件路径或 ATLAS 节点 ID。 */
   entityId: string;
@@ -403,6 +405,7 @@ function makeModuleNodes(dataset: AtlasDataset): ProjectionNode[] {
       level: 'module',
       label: module.name,
       sublabel: module.latin,
+      description: module.summary,
       moduleId: module.id,
       entityId: module.id,
       review: module.review,
@@ -679,6 +682,7 @@ function buildFileProjection(dataset: AtlasDataset, moduleId: AtlasModuleId): Gr
       level: 'file',
       label: fileLabel(file),
       sublabel: file,
+      description: file,
       moduleId: metric.moduleId,
       entityId: file,
       review: primary ? 'verified' : 'partially_verified',
@@ -699,6 +703,7 @@ function buildFileProjection(dataset: AtlasDataset, moduleId: AtlasModuleId): Gr
       level: 'file',
       label: fileLabel(file),
       sublabel: file,
+      description: file,
       moduleId: owner,
       entityId: file,
       review: 'unverified',
@@ -868,6 +873,7 @@ function buildSymbolProjection(
       level: 'symbol' as const,
       label: nodeLabel(node),
       sublabel: node.symbol,
+      description: node.responsibility ?? '',
       moduleId: node.moduleId,
       entityId: node.id,
       review: node.review.status,

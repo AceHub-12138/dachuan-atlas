@@ -1,5 +1,5 @@
-import { MODULES } from '../data/atlas';
 import type { ModuleId } from '../data/atlas';
+import type { AtlasModuleRecord } from '../architecture/schema';
 import {
   EVIDENCE_LABELS,
   EVIDENCE_ORDER,
@@ -10,6 +10,7 @@ import { ArrowLeft, ArrowRight } from './Icons';
 interface NexusIntroProps {
   muted: boolean;
   dataSource: 'demo' | 'nexus-snapshot';
+  modules: AtlasModuleRecord[];
   graph: GraphProjection | null;
   showGraphLinks: boolean;
   hasFlow: boolean;
@@ -24,6 +25,7 @@ interface NexusIntroProps {
 export function NexusIntro({
   muted,
   dataSource,
+  modules,
   graph,
   showGraphLinks,
   hasFlow,
@@ -66,27 +68,21 @@ export function NexusIntro({
       <div className="module-index">
         <div className="module-index__head">
           <span>模块索引</span>
-          <span>INDEX / 04</span>
+          <span>INDEX / {String(modules.length).padStart(2, '0')}</span>
         </div>
         <ol>
-          {MODULES.map((module) => (
+          {modules.map((module) => (
             <li key={module.id}>
               <button
                 type="button"
-                className={`module-row ${module.available ? 'is-available' : ''}`}
+                className="module-row is-available"
                 onClick={() => onOpenModule(module.id)}
                 tabIndex={muted ? -1 : 0}
               >
                 <span className="module-row__index">{module.index}</span>
                 <span className="module-row__name">{module.name}</span>
-                <span className="module-row__status">
-                  {module.available
-                    ? '查看详情'
-                    : dataSource === 'nexus-snapshot'
-                      ? '详情待开放'
-                      : 'P0 占位'}
-                </span>
-                {module.available ? <ArrowRight className="module-row__arrow" /> : null}
+                <span className="module-row__status">查看详情</span>
+                <ArrowRight className="module-row__arrow" />
               </button>
             </li>
           ))}
