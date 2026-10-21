@@ -33,8 +33,10 @@ describe('NEXUS 历史快照导入结果（1,390 节点规模）', () => {
     expect(dataset.snapshot?.generatedAt).toBe('2026-10-20');
     expect(dataset.snapshot?.graphifyVersion).toBe('0.9.92');
     expect(dataset.snapshot?.graphifySchemaVersion).toBe(1);
+    // snapshot.atlasSchemaVersion 是历史快照生成时的版本，不随导入层升级。
     expect(dataset.snapshot?.atlasSchemaVersion).toBe('1.3.0');
-    expect(dataset.schemaVersion).toBe('1.3.0');
+    expect(dataset.schemaVersion).toBe('1.4.0');
+    expect(dataset.schemaMigratedFrom).toBe('1.3.0');
     expect(dataset.snapshot?.history).toBe(true);
     expect(dataset.snapshot?.importStatus).toBe('complete');
     expect(dataset.snapshot?.manifest).toMatchObject({

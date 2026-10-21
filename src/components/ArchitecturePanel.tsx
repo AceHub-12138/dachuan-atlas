@@ -54,8 +54,10 @@ function SnapshotMeta({ dataset }: { dataset: AtlasDataset }) {
       <div>
         <dt>ATLAS Schema</dt>
         <dd>
-          {snapshot.atlasSchemaVersion}
-          {dataset.schemaMigratedFrom ? `（由 ${dataset.schemaMigratedFrom} 迁移）` : ''}
+          {dataset.schemaVersion}
+          {dataset.schemaMigratedFrom
+            ? `（快照记录 ${snapshot.atlasSchemaVersion}，导入时迁移）`
+            : ''}
         </dd>
       </div>
       <div>

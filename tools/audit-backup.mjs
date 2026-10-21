@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * P1.3 备份 / 恢复审计。
+ * ATLAS 备份 / 恢复审计（P1.3 起，P1.4 通用）。
  *
  * 实际执行：
  * 1. 校验 Git bundle 与本地数据副本的 SHA-256；
@@ -304,6 +304,8 @@ async function main() {
   );
   const out = args.out ? path.resolve(ROOT, args.out) : path.join(ROOT, 'docs/architecture/p1.3-backup-audit.json');
   const nodeModulesFallback = args['node-modules'] ? path.resolve(expandHome(args['node-modules'])) : null;
+  const expectedCommit = typeof args['expected-commit'] === 'string' ? args['expected-commit'] : null;
+  const expectedSha256 = typeof args['expected-sha256'] === 'string' ? args['expected-sha256'] : null;
 
   if (!existsSync(bundle)) throw new Error(`bundle 不存在：${path.basename(bundle)}`);
   if (!existsSync(dataDir)) throw new Error(`数据副本目录不存在：${path.basename(dataDir)}`);
@@ -337,15 +339,34 @@ async function main() {
   // Bundle verify and refs.
   const verify = await run('git', ['bundle', 'verify', bundle], { cwd: ROOT });
   const heads = await run('git', ['bundle', 'list-heads', bundle], { cwd: ROOT });
+  const refs = heads.stdout.trim().split('\n').filter(Boolean);
+  const commitCheck = expectedCommit
+    ? refs.some((ref) => ref.startsWith(`${expectedCommit} `))
+    : true;
+  const shaCheck = expectedSha256
+    ? report.bundle.sha256 === expectedSha256
+    : true;
   report.bundleVerification = {
-    status: verify.code === 0 ? 'passed' : 'failed',
+    status: verify.code === 0 && commitCheck && shaCheck ? 'passed' : 'failed',
     output: sanitize(`${verify.stdout}\n${verify.stderr}`).trim().slice(0, 1200),
-    refs: heads.stdout.trim().split('\n').filter(Boolean),
+    refs,
+    expectedCommit,
+    expectedSha256,
+    commitCheck,
+    shaCheck,
   };
   if (verify.code !== 0) throw new Error('git bundle verify 失败');
+  if (!commitCheck) throw new Error(`bundle 引用与预期提交不一致：${expectedCommit}`);
+  if (!shaCheck) throw new Error('bundle SHA-256 与预期不一致');
 
-  // List files in bundle without extracting.
-  const tree = await run('git', ['ls-tree', '-r', '--name-only', 'HEAD'], { cwd: ROOT });
+  // Isolated restore first; inspect the tree from the bundle itself, not from
+  // the current working tree (which may already be a later round).
+  const restoreRoot = await mkdtemp(path.join(tmpdir(), 'atlas-restore-'));
+  const restored = path.join(restoreRoot, 'restored');
+  const clone = await run('git', ['clone', '--quiet', bundle, restored], { cwd: restoreRoot });
+  if (clone.code !== 0) throw new Error(`bundle 克隆失败：${sanitize(clone.stderr)}`);
+
+  const tree = await run('git', ['ls-tree', '-r', '--name-only', 'HEAD'], { cwd: restored });
   const treeFiles = tree.stdout.split('\n').filter(Boolean);
   const forbidden = treeFiles.filter(
     (file) =>
@@ -369,12 +390,6 @@ async function main() {
     status: forbidden.length ? 'failed' : 'passed',
   };
   if (forbidden.length) throw new Error(`bundle 包含被排除文件：${forbidden.slice(0, 5).join(', ')}`);
-
-  // Isolated restore.
-  const restoreRoot = await mkdtemp(path.join(tmpdir(), 'atlas-restore-'));
-  const restored = path.join(restoreRoot, 'restored');
-  const clone = await run('git', ['clone', '--quiet', bundle, restored], { cwd: restoreRoot });
-  if (clone.code !== 0) throw new Error(`bundle 克隆失败：${sanitize(clone.stderr)}`);
 
   const restoredGitignore = await readFile(path.join(restored, '.gitignore'), 'utf8');
   const ignoreChecks = ['local-data/', 'dist/', 'node_modules/', '*.tsbuildinfo'];
@@ -462,21 +477,21 @@ async function main() {
   report.limitations = [
     '本报告只证明本机同一用户的隔离目录恢复；没有异机 / 离线介质恢复证据。',
     '备份仍位于本机 ~/Documents/DACHUAN-ATLAS-private-backups；尚未完成异机备份。',
-    'Windows 实机恢复未执行；Windows 迁移步骤见 docs/P1.3-MAC-TO-WINDOWS.md。',
+    'Windows 实机恢复未执行；Windows 迁移步骤见 docs/P1.4-MAC-TO-WINDOWS.md。',
   ];
 
   await mkdir(path.dirname(out), { recursive: true });
   await writeFile(out, `${JSON.stringify(report, null, 2)}\n`, 'utf8');
-  console.log('[P1.3] 备份审计通过');
-  console.log(`[P1.3] bundle 文件：${report.bundle.name}（${report.bundle.bytes} bytes）`);
-  console.log(`[P1.3] bundle 排除检查：${report.exclusions.status}，共 ${report.exclusions.totalFiles} 个文件`);
-  console.log(`[P1.3] 隔离恢复：tests ${report.restore.tests.status} · build ${report.restore.build.status} · verify:build ${report.restore.verifyBuild.status}`);
-  console.log(`[P1.3] 真实数据重新导入：${report.dataReimport.status}`);
-  console.log(`[P1.3] 报告：${path.relative(ROOT, out)}`);
+  console.log('[ATLAS] 备份审计通过');
+  console.log(`[ATLAS] bundle 文件：${report.bundle.name}（${report.bundle.bytes} bytes）`);
+  console.log(`[ATLAS] bundle 排除检查：${report.exclusions.status}，共 ${report.exclusions.totalFiles} 个文件`);
+  console.log(`[ATLAS] 隔离恢复：tests ${report.restore.tests.status} · build ${report.restore.build.status} · verify:build ${report.restore.verifyBuild.status}`);
+  console.log(`[ATLAS] 真实数据重新导入：${report.dataReimport.status}`);
+  console.log(`[ATLAS] 报告：${path.relative(ROOT, out)}`);
   await rm(restoreRoot, { recursive: true, force: true }).catch(() => {});
 }
 
 main().catch((error) => {
-  console.error(`[P1.3] 备份审计失败：${error instanceof Error ? error.message : String(error)}`);
+  console.error(`[ATLAS] 备份审计失败：${error instanceof Error ? error.message : String(error)}`);
   process.exitCode = 1;
 });

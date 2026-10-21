@@ -1,0 +1,142 @@
+{
+  "generatedAt": "2026-10-21",
+  "schema": {
+    "id": "atlas.architecture",
+    "version": "1.4.0",
+    "compatibleFrom": ["1.0.x", "1.1.x", "1.2.x", "1.3.x"],
+    "dimensions": {
+      "repositoryScope": ["intra-repository", "cross-repository"],
+      "runtimeScope": ["intra-runtime", "cross-runtime", "unknown"]
+    }
+  },
+  "nexusSnapshot": {
+    "file": "nexus-2026-10-20-2584284.atlas.json",
+    "sha256": "bb7774ac1413fd31150afecad3563ed38ac6766346fe2e30269dc97bc42f0f35",
+    "snapshotKey": "nexus@2584284@2026-10-20",
+    "commit": "2584284e3e7b994d0510d9d53b2a302e3aa740bc",
+    "nodes": 1390,
+    "relations": 3170,
+    "modules": 4,
+    "moduleEdges": 3,
+    "moduleEdgeCounts": {
+      "voice>data": 25,
+      "data>animation": 13,
+      "data>voice": 10
+    },
+    "moduleRelationTotal": 48,
+    "aiReviewedRelations": 13,
+    "unverifiedRelations": 3157,
+    "flow": {
+      "id": "flow-voice-request-to-overlay",
+      "semantics": "module-collaboration",
+      "conceptualSteps": 7,
+      "staticTransitions": 4,
+      "runtimeVerifiedTransitions": 0,
+      "gaps": 2
+    }
+  },
+  "migration": {
+    "fromSchemaVersion": "1.3.0",
+    "relationsMigrated": 3170,
+    "repositoryScopes": {
+      "intraRepository": 3170,
+      "crossRepository": 0
+    },
+    "runtimeScopes": {
+      "intraRuntime": 0,
+      "crossRuntime": 0,
+      "unknown": 3170
+    },
+    "legacyScopes": {
+      "none": 3170
+    },
+    "runtimeVerifiedDowngraded": 0,
+    "sourceFactsRewritten": false
+  },
+  "relationScenarioResults": [
+    {
+      "scenario": "跨仓库 + 跨运行时同时成立",
+      "expected": "accepted and counted in both dimensions",
+      "result": "passed",
+      "test": "tests/architecture/multi-repo.test.ts"
+    },
+    {
+      "scenario": "同仓库 + 跨运行时",
+      "expected": "accepted; not counted as cross-repository",
+      "result": "passed",
+      "test": "tests/architecture/multi-repo.test.ts"
+    },
+    {
+      "scenario": "跨仓库 + 未知运行时",
+      "expected": "accepted as cross-repository; runtimeScope=unknown; not counted as cross-runtime",
+      "result": "passed",
+      "test": "tests/architecture/multi-repo.test.ts"
+    },
+    {
+      "scenario": "运行时边界未知却声明 intra-runtime",
+      "expected": "rejected",
+      "result": "passed",
+      "test": "tests/architecture/multi-repo.test.ts"
+    },
+    {
+      "scenario": "runtimeVerified 无带类型运行时证据",
+      "expected": "rejected",
+      "result": "passed",
+      "test": "tests/architecture/multi-repo.test.ts"
+    },
+    {
+      "scenario": "仅有 AI 源码复核即声明 runtimeVerified",
+      "expected": "rejected; AI source review is not runtime verification",
+      "result": "passed",
+      "test": "tests/architecture/multi-repo.test.ts"
+    },
+    {
+      "scenario": "未审核跨仓库候选",
+      "expected": "rejected; not in confirmed graph",
+      "result": "passed",
+      "test": "tests/architecture/multi-repo.test.ts"
+    },
+    {
+      "scenario": "旧版跨仓库关系缺少 interfaceEvidence",
+      "expected": "retained with original evidence but excluded from confirmed graph",
+      "result": "passed",
+      "test": "tests/architecture/multi-repo.test.ts"
+    },
+    {
+      "scenario": "1.3 scope=cross-process 迁移",
+      "expected": "repositoryScope computed independently; runtimeScope=cross-runtime",
+      "result": "passed",
+      "test": "tests/architecture/multi-repo.test.ts"
+    },
+    {
+      "scenario": "不同快照同一关系 ID",
+      "expected": "scopedRelationId differs by snapshotKey; duplicate snapshotKey detected",
+      "result": "passed",
+      "test": "tests/architecture/multi-repo.test.ts"
+    },
+    {
+      "scenario": "CRM 独立模块定义",
+      "expected": "accepted with repository=crm; NEXUS modules cannot be reused",
+      "result": "passed",
+      "test": "tests/architecture/multi-repo.test.ts"
+    },
+    {
+      "scenario": "导出并重新导入 1.4 数据",
+      "expected": "scope fields preserved",
+      "result": "passed",
+      "test": "tests/architecture/multi-repo.test.ts"
+    }
+  ],
+  "unitTests": {
+    "files": 14,
+    "passed": 124,
+    "skipped": 1,
+    "failed": 0
+  },
+  "browserRegression": "docs/architecture/p1.4-chrome-verification.json",
+  "limitations": [
+    "本结果只覆盖 macOS 本机；Windows 实机验收仍待完成。",
+    "没有扫描 CRM 或 Electron；跨仓库场景使用合成测试数据。",
+    "NEXUS 历史快照没有被改写为 1.4 文件；1.4 是导入时迁移后的内存/导出结构。"
+  ]
+}

@@ -184,15 +184,14 @@ async function main() {
   const payload = JSON.parse(await readFile(flowsPath, 'utf8'));
   const flows = validateFlows(payload, dataset.nodes);
 
+  // 附加解释材料不改变数据集 Schema 版本；保留原始版本，由导入层迁移。
   const next = {
     ...dataset,
-    schemaVersion: '1.3.0',
     flows,
   };
   if (next.snapshot) {
     next.snapshot = {
       ...next.snapshot,
-      atlasSchemaVersion: '1.3.0',
       notes: [
         ...(Array.isArray(next.snapshot.notes) ? next.snapshot.notes : []).filter(
           (note) => !note.startsWith('P1.2 本地附加流程场景') && !note.startsWith('P1.3 本地附加协作场景'),

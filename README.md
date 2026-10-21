@@ -1,6 +1,6 @@
 # DACHUAN ATLAS · 大川项目架构星图
 
-> **P1.3 可信架构解释 + P1.2 真实架构投影 + P0.1 视觉原型。** 默认构建只包含演示数据；真实 NEXUS 快照需在本地明确导入。模块、文件与符号探索默认展示中文解释，技术细节可展开；语音场景改称「模块协作示意」，严格区分概念步骤、静态关联、已验证运行时顺序与证据缺口。NEXUS 模块层会绘制有证据的跨模块连线。模块位置、中枢连接、星点、轨道与流星仍是演示构图。CRM / Electron 尚未接入真实架构数据。
+> **P1.4 双维度关系作用域 + P1.3 可信架构解释 + P1.2 真实架构投影 + P0.1 视觉原型。** 默认构建只包含演示数据；真实 NEXUS 快照需在本地明确导入。P1.4 把关系的仓库维度（`repositoryScope`）与运行时维度（`runtimeScope`）拆开：跨仓库和跨进程可以同时成立，跨仓库不再自动等于跨进程，运行时边界未知时保持 `unknown`，AI 源码复核不再被误当成运行时验证。模块、文件与符号探索默认展示中文解释，技术细节可展开；语音场景仍称「模块协作示意」，严格区分概念步骤、静态关联、已验证运行时顺序与证据缺口。NEXUS 模块层会绘制有证据的跨模块连线。模块位置、中枢连接、星点、轨道与流星仍是演示构图。CRM / Electron 尚未接入真实架构数据。
 
 一套用于评估「电影式宇宙星系 × 未来数字神经网络」视觉语言的独立前端原型，并在此基础上验证 Graphify 架构数据能否被可靠读取。它把 DACHUAN 软件体系映射为一座可探索的系统宇宙，通过三级镜头运动串联：**系统宇宙 → NEXUS 模块星系 → 模块详情 / 架构投影 / 模块协作示意**。
 
@@ -41,10 +41,11 @@ npm run build
 npm run verify:build
 ```
 
-P1.3 浏览器验收、性能对照与备份审计需要本地 preview 已启动：
+P1.4 / P1.3 浏览器验收、性能对照与备份审计需要本地 preview 已启动：
 
 ```bash
-node tools/verify-p13.mjs          # 独立 Chrome；语义、中文解释、理解检查、导出重导入
+node tools/verify-p14.mjs          # P1.4 回归：Schema 1.4 导出、46 条待核实不变、48 条关系不变
+node tools/verify-p13.mjs          # P1.3 历史验收（导出断言仍是 1.3.0，P1.4 代码下会失败）
 HEADFUL=1 node tools/perf-p12.mjs  # 可见 Chrome；性能对照（结果另存为 p1.3-performance.json）
 node tools/audit-backup.mjs        # 隔离目录恢复、测试、构建、真实数据重新导入
 ```
@@ -175,13 +176,23 @@ ATLAS 标准数据集 → 关系筛选与聚合 → 星图布局数据 → Canva
 
 ![中文解释层](docs/screenshots/P1.3-05-explorer-plain-1920x1080.png)
 
-### 3.6 备份与多仓库准备
+### 3.6 双维度关系作用域（P1.4）
 
-- 隔离目录从 Git bundle 恢复 → `npm ci` → `npm test` → `npm run build` → `verify:build` → 浏览器重新导入真实快照；结果见 [p1.3-backup-audit.json](docs/architecture/p1.3-backup-audit.json)。
-- Mac → Windows 的完整文件清单、SHA-256 校验、PowerShell 命令和验收清单见 [P1.3-MAC-TO-WINDOWS.md](docs/P1.3-MAC-TO-WINDOWS.md)。
-- Schema 1.3 增加可选的仓库登记、快照标识、跨仓库关系范围与运行时边界；CRM / Electron 只完成设计，没有扫描或导入。详见 [P1.3-MULTI-REPO.md](docs/P1.3-MULTI-REPO.md)。
+- 关系的仓库维度与运行时维度拆开：`repositoryScope = intra-repository | cross-repository`，`runtimeScope = intra-runtime | cross-runtime | unknown`。
+- 跨仓库 + 跨进程可以同时成立；同仓库也可以跨进程；跨仓库不自动等于跨进程。
+- 运行时边界未知时保持 `unknown`，不推断为同进程；`runtimeVerified=true` 必须有带类型的运行时证据（trace / 日志 / 协议测试等）和 AI/人工复核。
+- 1.3 的单一 `scope` 在导入时迁移，`legacyScope` 保留原值；NEXUS 3,170 条关系全部迁移为 `intra-repository` + `unknown`，没有新增运行时结论。
+- 快照与关系 ID 分离：`snapshotKey` 唯一，跨快照索引用 `${snapshotKey}::${relation.id}`。
+- 跨仓库关系必须提供 `interfaceEvidence`（API 契约、协议 schema、包清单、契约/集成测试等）；未审核候选不进入已确认图。
+- CRM / Electron 只完成数据层设计与 P2.0 前置条件，没有扫描或导入。详见 [P1.4-MULTI-REPO.md](docs/P1.4-MULTI-REPO.md) 与 [P2.0-CRM-PREREQUISITES.md](docs/P2.0-CRM-PREREQUISITES.md)。
 
-完整报告：[P1.3-REPORT.md](docs/P1.3-REPORT.md) · P1.2 报告：[P1.2-REPORT.md](docs/P1.2-REPORT.md) · Schema：[ATLAS-SCHEMA.md](docs/architecture/ATLAS-SCHEMA.md) · 模块证据：[NEXUS-MODULE-EVIDENCE.md](docs/architecture/NEXUS-MODULE-EVIDENCE.md)
+### 3.7 备份与迁移
+
+- 隔离目录从 Git bundle 恢复 → `npm ci` → `npm test` → `npm run build` → `verify:build` → 浏览器重新导入真实快照；P1.3 最终 bundle 复核见 [p1.4-p13-final-bundle-verification.json](docs/architecture/p1.4-p13-final-bundle-verification.json)。
+- Mac → Windows 的完整文件清单、SHA-256 校验、PowerShell 命令和验收清单见 [P1.4-MAC-TO-WINDOWS.md](docs/P1.4-MAC-TO-WINDOWS.md)。P1.3 指南中的 `local-data` 创建缺陷已勘误。
+- Windows 实机验收仍为**待完成**；没有 Windows 实机时不得声称已通过。
+
+完整报告：[P1.4-REPORT.md](docs/P1.4-REPORT.md) · P1.3 报告：[P1.3-REPORT.md](docs/P1.3-REPORT.md) · Schema：[ATLAS-SCHEMA.md](docs/architecture/ATLAS-SCHEMA.md) · 模块证据：[NEXUS-MODULE-EVIDENCE.md](docs/architecture/NEXUS-MODULE-EVIDENCE.md)
 
 ```bash
 npm run import:graphify -- --graphify "../graphify-poc" \
@@ -344,6 +355,15 @@ P1.3 没有改 Canvas 引擎；新增中文解释与弹窗只在交互时渲染�
 | P1.3 测试 | 通过（113 项通过 + 1 项跳过，14 个测试文件） |
 | P1.3 构建安全门禁 | 通过；dist 无快照、提交 SHA、内部符号、源码路径或流程场景 |
 | P1.3 Windows 实机 | **待 Windows 验收** |
+| P1.4 双维度作用域 | 通过单元测试（跨仓库+跨进程、同仓库+跨进程、跨仓库+未知、未知边界拒绝 intra） |
+| P1.4 旧 Schema 迁移 | 通过（1.0–1.3 导入；NEXUS 3,170 条关系迁移为 intra + unknown） |
+| P1.4 运行时验证门槛 | 通过（无带类型证据或 AI/人工复核时拒绝 runtimeVerified） |
+| P1.4 快照/关系 ID | 通过（snapshotKey 唯一；跨快照 scopedRelationId） |
+| P1.4 NEXUS 回归 | 通过（4 模块 / 3 组 / 48 条 / 13 AI 复核 / 3,157 待核实） |
+| P1.4 浏览器回归 | 通过（独立 Chrome；导出 Schema 1.4 后重新导入） |
+| P1.4 测试 | 通过（124 项通过 + 1 项跳过，14 个测试文件） |
+| P1.4 P1.3 最终 bundle 复核 | 通过（SHA-256、提交、独立恢复、构建、浏览器导入） |
+| P1.4 Windows 实机 | **待 Windows 验收** |
 | P1.1 四模块真实详情 | 通过（独立 Chrome + 截图） |
 | P1.1 关系搜索 / 筛选 | 通过（23 条关系；AI 筛选 4 条） |
 | P1.1 旧 Schema 1.0 兼容 | 通过单元测试迁移 |
@@ -499,7 +519,7 @@ P0.1 没有接入 Graphify；P1.1 / P1.2 只接入用户本地导入的 Graphify
 8. 数据导入 CLI 使用 Node 跨平台 API，路径统一为 POSIX 相对路径；盘符路径与 UNC 会被拒绝。建议在 Windows 实机执行 `npm test` 与一次 `npm run import:graphify`。
 9. 浏览器导入使用标准 File API，不要求 Bash；快照数据是本地静态文件，离线可读。
 10. 模块协作场景需要本地 `.flows.json`；在 Windows 上执行 `npm run attach:flows`，或直接导入已附加场景的 `.atlas.json`。不要从 NEXUS 工作区自动生成。
-11. CDP 验收脚本 `verify-p13.mjs` / `verify-p12.mjs`、`perf-p12.mjs`、`record-p12.mjs` 使用 Node 20+ 内置 WebSocket；Windows 可使用同一 Chrome 路径或设置 `CHROME_PATH`。
+11. CDP 验收脚本 `verify-p14.mjs` / `verify-p13.mjs` / `verify-p12.mjs`、`perf-p12.mjs`、`record-p12.mjs` 使用 Node 20+ 内置 WebSocket；Windows 可使用同一 Chrome 路径或设置 `CHROME_PATH`。
 
 **Windows 状态：待 Windows 验收。**
 
@@ -507,16 +527,18 @@ P0.1 没有接入 Graphify；P1.1 / P1.2 只接入用户本地导入的 Graphify
 
 ## 11. 私有版本控制与备份方案
 
-P1.2 施工前已建立 **仅本机、无远程仓库** 的私有版本控制；P1.3 继续沿用，没有创建 GitHub / GitLab 远程，也没有上传任何文件。
+P1.2 施工前已建立 **仅本机、无远程仓库** 的私有版本控制；P1.3 / P1.4 继续沿用，没有创建 GitHub / GitLab 远程，也没有上传任何文件。
 
-- **本地 Git**：`git init -b main`；基线提交 `fa2c129`（P1.1），P1.2 最终提交 `330be91`，P1.3 提交见本轮报告；`local-data/`、`dist/`、`node_modules/` 继续由 `.gitignore` 排除。
+- **本地 Git**：`git init -b main`；基线提交 `fa2c129`（P1.1），P1.2 最终提交 `330be91`，P1.3 最终提交 `4d12381`，P1.4 提交见本轮报告；`local-data/`、`dist/`、`node_modules/` 继续由 `.gitignore` 排除。
 - **P1.1 基线 bundle**：`atlas-p11-20261021-071831.bundle`（约 54 MB，不含 `local-data`）。
 - **P1.2 最终 bundle**：`atlas-p12-final-20261021.bundle`（源码、文档、13 张截图与录屏；不含 `local-data`）。
 - **P1.3 最终 bundle**：`atlas-p13-final-20261021.bundle`（源码、文档、P1.3 截图、测试与验收记录；不含 `local-data`）。
-- **快照副本**：`local-data-p13-final-20261021/` 包含 Schema 1.3.0 快照、模块协作场景与模块解释；另保留 P1.1 / P1.2 副本。
-- **校验**：`SHA256-p13-final-20261021.txt` 记录 bundle、快照、流程与解释文件的 SHA-256；`RESTORE-p13-final-20261021.md` 说明恢复步骤。
-- **恢复审计**：`node tools/audit-backup.mjs` 已在本机隔离目录执行 bundle 克隆、`npm ci`、测试、构建、构建门禁与浏览器重新导入；结果见 `docs/architecture/p1.3-backup-audit.json`。
-- **当前限制**：**仅本机备份，尚未完成异机备份**；Windows 实机恢复未执行。完成 `docs/P1.3-MAC-TO-WINDOWS.md` 第 6 节才算异机恢复验证。
+- **P1.3 复核**：P1.4 已重新校验 P1.3 最终 bundle 的 SHA-256、提交 `4d12381`、独立恢复、构建与真实数据导入；结果见 `docs/architecture/p1.4-p13-final-bundle-verification.json`。
+- **P1.4 最终 bundle**：`p14-final-20261021/atlas-p14-final-20261021.bundle`，与 P1.3 备份使用独立目录与文件名，不覆盖旧备份。
+- **快照副本**：`local-data-p14-final-20261021/` 保留原始 Schema 1.3.0 快照、模块协作场景与模块解释；导入时迁移到 Schema 1.4.0，源文件不改写。P1.1 / P1.2 / P1.3 副本继续保留。
+- **校验**：`SHA256-p14-final-20261021.txt` 记录 P1.4 bundle、快照、流程与解释文件的 SHA-256；`RESTORE-p14-final-20261021.md` 说明恢复步骤。
+- **恢复审计**：`node tools/audit-backup.mjs` 在本机隔离目录执行 bundle 克隆、`npm ci`、测试、构建、构建门禁与浏览器重新导入；P1.4 最终 bundle 审计结果见备份目录中的 `p1.4-final-bundle-audit.json`。
+- **当前限制**：**仅本机备份，尚未完成异机备份**；Windows 实机恢复未执行。完成 `docs/P1.4-MAC-TO-WINDOWS.md` 第 6 节才算异机恢复验证。
 - **建议的后续做法**：
   1. 继续使用本地 Git，按轮次提交；不要添加公开远程。
   2. 每次结构变更后生成新的 `git bundle`，复制到加密磁盘或离线介质。
@@ -554,7 +576,7 @@ P1.2 施工前已建立 **仅本机、无远程仓库** 的私有版本控制；
 │   ├── styles/                  # 基础、场景界面、浮层三类样式
 │   └── assets/fonts/            # 本地 WOFF2 字体
 ├── local-data/nexus/            # 本地快照、协作场景与模块解释（.gitignore，不进入构建）
-├── tests/architecture/          # 113 项通过 + 1 项跳过的架构数据测试
+├── tests/architecture/          # 124 项通过 + 1 项跳过的架构数据测试
 ├── tools/
 │   ├── import-graphify.mjs      # 跨平台 Graphify → ATLAS CLI
 │   ├── attach-flows.mjs         # 本地模块协作场景附加与节点存在性校验

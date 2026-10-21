@@ -5,6 +5,7 @@ import {
   type ProjectionEdge,
   type ProjectionNode,
 } from '../architecture/projection';
+import type { AtlasModuleId } from '../architecture/schema';
 import { clamp, mulberry32, pointAtSamples, rgba, sampleCubic } from './math';
 import type { Point } from './math';
 import type { MotionMode } from './AtlasScene';
@@ -75,8 +76,10 @@ const EMPTY_SELECTION: ProjectionSelection = {
   pathEdgeIds: [],
 };
 
-function moduleColor(moduleId: ModuleId | null): string {
-  if (moduleId && MODULE_BY_ID[moduleId]) return MODULE_BY_ID[moduleId].color;
+function moduleColor(moduleId: AtlasModuleId | null): string {
+  if (moduleId && Object.prototype.hasOwnProperty.call(MODULE_BY_ID, moduleId)) {
+    return MODULE_BY_ID[moduleId as ModuleId].color;
+  }
   return '#A9B8C4';
 }
 
@@ -255,7 +258,7 @@ export class ProjectionCanvasScene {
     const min = Math.min(this.width, this.height);
 
     if (this.projection.level === 'module') {
-      const positions: Record<ModuleId, Point> = {
+      const positions: Record<string, Point> = {
         data: { x: -0.32, y: -0.27 },
         voice: { x: 0.34, y: -0.23 },
         animation: { x: -0.3, y: 0.27 },

@@ -45,7 +45,7 @@ async function main() {
   try {
     await stat(DIST);
   } catch {
-    console.error('[P1.3] 安全门禁失败：dist 不存在，请先运行 npm run build。');
+    console.error('[ATLAS] 安全门禁失败：dist 不存在，请先运行 npm run build。');
     process.exitCode = 1;
     return;
   }
@@ -68,22 +68,22 @@ async function main() {
   }
 
   const hasMark = files.some((file) => path.relative(DIST, file) === 'atlas-mark.svg');
-  console.log(`[P1.3] 检查 ${files.length} 个 dist 文件`);
-  console.log(`[P1.3] 真实快照文件：${snapshots.length}`);
-  console.log(`[P1.3] 静态图标：${hasMark ? '存在' : '缺失'}`);
+  console.log(`[ATLAS] 检查 ${files.length} 个 dist 文件`);
+  console.log(`[ATLAS] 真实快照文件：${snapshots.length}`);
+  console.log(`[ATLAS] 静态图标：${hasMark ? '存在' : '缺失'}`);
 
   if (findings.length || !hasMark) {
-    console.error('[P1.3] 安全门禁失败：');
+    console.error('[ATLAS] 安全门禁失败：');
     for (const finding of findings) console.error(`  - ${finding}`);
     if (!hasMark) console.error('  - dist/atlas-mark.svg 缺失');
     process.exitCode = 1;
     return;
   }
 
-  console.log('[P1.3] 安全门禁通过：默认构建不含真实快照、提交 SHA 或内部源码定位。');
+  console.log('[ATLAS] 安全门禁通过：默认构建不含真实快照、提交 SHA 或内部源码定位。');
 }
 
 main().catch((error) => {
-  console.error(`[P1.3] 安全门禁异常：${error instanceof Error ? error.message : String(error)}`);
+  console.error(`[ATLAS] 安全门禁异常：${error instanceof Error ? error.message : String(error)}`);
   process.exitCode = 1;
 });

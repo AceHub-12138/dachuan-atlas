@@ -6,6 +6,7 @@ import {
   AtlasDataError,
   isAtlasModuleId,
   isAtlasSystemId,
+  isReviewed,
   MODULE_ORDER,
   type AtlasDataset,
   type AtlasEvidenceRef,
@@ -14,15 +15,22 @@ import {
   type AtlasFlowStep,
   type AtlasModuleComponent,
   type AtlasModuleId,
+  type AtlasContractEvidenceKind,
+  type AtlasContractEvidenceRef,
   type AtlasModuleRecord,
   type AtlasNode,
   type AtlasRelation,
   type AtlasRelationScope,
   type AtlasRepositoryRecord,
+  type AtlasRepositoryScope,
   type AtlasReview,
   type AtlasReviewMethod,
   type AtlasReviewStatus,
   type AtlasRuntimeBoundary,
+  type AtlasRuntimeEvidenceKind,
+  type AtlasRuntimeEvidenceRef,
+  type AtlasRuntimeScope,
+  type AtlasScopeMigrationSummary,
   type AtlasSourceKind,
 } from './schema.ts';
 import { normalizeRelativePath } from './paths.ts';
@@ -46,10 +54,28 @@ const REVIEW_METHODS: AtlasReviewMethod[] = [
 const SOURCE_KINDS: AtlasSourceKind[] = ['demo', 'graphify'];
 const SYSTEM_ORDER = ['nexus', 'crm', 'electron'];
 const FLOW_SEMANTICS: AtlasFlowSemantics[] = ['module-collaboration', 'runtime-verified'];
-const RELATION_SCOPES: AtlasRelationScope[] = [
+/** 1.3 及更早的单一 scope；只作为迁移输入。 */
+const LEGACY_RELATION_SCOPES: AtlasRelationScope[] = [
   'intra-repository',
   'cross-repository',
   'cross-process',
+];
+const REPOSITORY_SCOPES: AtlasRepositoryScope[] = ['intra-repository', 'cross-repository'];
+const RUNTIME_SCOPES: AtlasRuntimeScope[] = ['intra-runtime', 'cross-runtime', 'unknown'];
+const RUNTIME_EVIDENCE_KINDS: AtlasRuntimeEvidenceKind[] = [
+  'runtime-trace',
+  'runtime-log',
+  'protocol-test',
+  'integration-test',
+  'runtime-observation',
+];
+const CONTRACT_EVIDENCE_KINDS: AtlasContractEvidenceKind[] = [
+  'api-contract',
+  'protocol-schema',
+  'package-manifest',
+  'config-binding',
+  'contract-test',
+  'integration-test',
 ];
 const RUNTIME_BOUNDARIES: AtlasRuntimeBoundary[] = [
   'browser-renderer',
@@ -62,6 +88,8 @@ const RUNTIME_BOUNDARIES: AtlasRuntimeBoundary[] = [
 const FLOW_BASIS = ['source-responsibility', 'runtime-evidence'];
 const LEGACY_FLOW_RUNTIME_NOTE =
   '该流程由 1.2 及更早数据迁移：步骤是概念性协作说明，未记录运行时顺序证据。';
+const LEGACY_CANDIDATE_NOTE =
+  '旧版跨仓库关系没有 1.4 接口证据分类；保留为未确认候选，不进入已确认跨仓库关系图。';
 const LEGACY_AI_REVIEWER = 'P1.0 人工核对';
 const AI_ACTOR = 'ZCode + DeepSeek（P1.0 施工 Agent）';
 
@@ -101,8 +129,69 @@ function isRuntimeBoundary(value: unknown): value is AtlasRuntimeBoundary {
   return RUNTIME_BOUNDARIES.includes(value as AtlasRuntimeBoundary);
 }
 
-function isRelationScope(value: unknown): value is AtlasRelationScope {
-  return RELATION_SCOPES.includes(value as AtlasRelationScope);
+function isLegacyRelationScope(value: unknown): value is AtlasRelationScope {
+  return LEGACY_RELATION_SCOPES.includes(value as AtlasRelationScope);
+}
+
+function isRepositoryScope(value: unknown): value is AtlasRepositoryScope {
+  return REPOSITORY_SCOPES.includes(value as AtlasRepositoryScope);
+}
+
+function isRuntimeScope(value: unknown): value is AtlasRuntimeScope {
+  return RUNTIME_SCOPES.includes(value as AtlasRuntimeScope);
+}
+
+function isRuntimeEvidenceKind(value: unknown): value is AtlasRuntimeEvidenceKind {
+  return RUNTIME_EVIDENCE_KINDS.includes(value as AtlasRuntimeEvidenceKind);
+}
+
+function isContractEvidenceKind(value: unknown): value is AtlasContractEvidenceKind {
+  return CONTRACT_EVIDENCE_KINDS.includes(value as AtlasContractEvidenceKind);
+}
+
+function isKnownRuntimeBoundary(
+  value: AtlasRuntimeBoundary | null | undefined,
+): value is AtlasRuntimeBoundary {
+  return !!value && value !== 'unknown' && value !== 'shared';
+}
+
+function deriveRuntimeScope(
+  fromBoundary: AtlasRuntimeBoundary | null | undefined,
+  toBoundary: AtlasRuntimeBoundary | null | undefined,
+): AtlasRuntimeScope {
+  if (isKnownRuntimeBoundary(fromBoundary) && isKnownRuntimeBoundary(toBoundary)) {
+    return fromBoundary === toBoundary ? 'intra-runtime' : 'cross-runtime';
+  }
+  return 'unknown';
+}
+
+function emptyScopeMigration(fromVersion: string): AtlasScopeMigrationSummary {
+  return {
+    fromSchemaVersion: fromVersion,
+    relations: 0,
+    repositoryScopes: { intraRepository: 0, crossRepository: 0 },
+    runtimeScopes: { intraRuntime: 0, crossRuntime: 0, unknown: 0 },
+    legacyScopes: {},
+    runtimeVerifiedDowngraded: 0,
+    notes: [],
+  };
+}
+
+function countScopeMigration(
+  summary: AtlasScopeMigrationSummary,
+  relation: AtlasRelation,
+  legacyScope: AtlasRelationScope | null,
+  downgraded: boolean,
+): void {
+  summary.relations += 1;
+  if (relation.repositoryScope === 'cross-repository') summary.repositoryScopes.crossRepository += 1;
+  else summary.repositoryScopes.intraRepository += 1;
+  if (relation.runtimeScope === 'cross-runtime') summary.runtimeScopes.crossRuntime += 1;
+  else if (relation.runtimeScope === 'intra-runtime') summary.runtimeScopes.intraRuntime += 1;
+  else summary.runtimeScopes.unknown += 1;
+  const key = legacyScope ?? 'none';
+  summary.legacyScopes[key] = (summary.legacyScopes[key] ?? 0) + 1;
+  if (downgraded) summary.runtimeVerifiedDowngraded += 1;
 }
 
 function defaultRuntimeOrder(note: string) {
@@ -125,6 +214,98 @@ function validateEvidenceRef(raw: unknown, field: string): AtlasEvidenceRef {
   }
   requireString(raw.locator, `${field}.locator`);
   return raw as unknown as AtlasEvidenceRef;
+}
+
+function evidenceCommitMap(repositories: AtlasRepositoryRecord[]): Map<string, Set<string>> {
+  const map = new Map<string, Set<string>>();
+  for (const repository of repositories) {
+    const commits = map.get(repository.id) ?? new Set<string>();
+    for (const snapshot of repository.snapshots) commits.add(snapshot.commit);
+    map.set(repository.id, commits);
+  }
+  return map;
+}
+
+/**
+ * 证据必须指向已登记仓库，且提交必须属于该仓库已登记的快照之一。
+ * 这样不同历史快照不会被误合并，也不会把另一个仓库的文件当成当前证据。
+ */
+function validateEvidenceBinding(
+  evidence: AtlasEvidenceRef,
+  commits: Map<string, Set<string>>,
+  field: string,
+  options: { requireKnownCommit?: boolean } = {},
+): void {
+  if (!commits.size) return;
+  const allowed = commits.get(evidence.repository);
+  if (!allowed) {
+    throw new AtlasDataError(
+      'ATLAS_DATASET_REPOSITORY_INVALID',
+      `${field}.repository=${evidence.repository} 不在仓库登记表中。`,
+    );
+  }
+  if (evidence.commit === 'unknown') {
+    if (options.requireKnownCommit && [...allowed].some((commit) => commit !== 'unknown')) {
+      throw new AtlasDataError(
+        'ATLAS_DATASET_REPOSITORY_INVALID',
+        `${field} 必须绑定到已登记的提交；不能使用 unknown。`,
+      );
+    }
+    return;
+  }
+  if (!allowed.has(evidence.commit)) {
+    throw new AtlasDataError(
+      'ATLAS_DATASET_REPOSITORY_INVALID',
+      `${field}.commit=${evidence.commit} 不属于 ${evidence.repository} 的已登记快照。`,
+    );
+  }
+}
+
+function validateRuntimeEvidence(
+  raw: unknown,
+  field: string,
+  commits: Map<string, Set<string>>,
+): AtlasRuntimeEvidenceRef[] {
+  if (raw === undefined) return [];
+  if (!Array.isArray(raw)) {
+    throw new AtlasDataError('ATLAS_DATASET_INVALID', `${field} 必须是数组。`);
+  }
+  return raw.map((entry, index) => {
+    const ref = validateEvidenceRef(entry, `${field}[${index}]`);
+    if (!isRecord(entry)) {
+      throw new AtlasDataError('ATLAS_DATASET_INVALID', `${field}[${index}] 结构非法。`);
+    }
+    if (entry.kind !== undefined && entry.kind !== null && !isRuntimeEvidenceKind(entry.kind)) {
+      throw new AtlasDataError('ATLAS_DATASET_INVALID', `${field}[${index}].kind 非法。`);
+    }
+    if (entry.capturedAt !== undefined && entry.capturedAt !== null && typeof entry.capturedAt !== 'string') {
+      throw new AtlasDataError('ATLAS_DATASET_INVALID', `${field}[${index}].capturedAt 必须是字符串或 null。`);
+    }
+    validateEvidenceBinding(ref, commits, `${field}[${index}]`);
+    return entry as unknown as AtlasRuntimeEvidenceRef;
+  });
+}
+
+function validateContractEvidence(
+  raw: unknown,
+  field: string,
+  commits: Map<string, Set<string>>,
+): AtlasContractEvidenceRef[] {
+  if (raw === undefined) return [];
+  if (!Array.isArray(raw)) {
+    throw new AtlasDataError('ATLAS_DATASET_INVALID', `${field} 必须是数组。`);
+  }
+  return raw.map((entry, index) => {
+    const ref = validateEvidenceRef(entry, `${field}[${index}]`);
+    if (!isRecord(entry) || !isContractEvidenceKind(entry.kind)) {
+      throw new AtlasDataError(
+        'ATLAS_DATASET_INVALID',
+        `${field}[${index}].kind 必须是接口/协议证据类型。`,
+      );
+    }
+    validateEvidenceBinding(ref, commits, `${field}[${index}]`, { requireKnownCommit: true });
+    return entry as unknown as AtlasContractEvidenceRef;
+  });
 }
 
 function snapshotKeyFor(repositoryId: string, commitShort: string, generatedAt: string | null): string {
@@ -225,7 +406,7 @@ function normalizeDatasetV13(
         ...raw.snapshot,
         notes: [
           ...(Array.isArray(raw.snapshot.notes) ? raw.snapshot.notes : []),
-          `数据集由 ATLAS Schema ${originalVersion} 迁移到 ${ATLAS_SCHEMA_VERSION}；流程语义默认按“模块协作示意”处理，未新增运行时结论。`,
+          `数据集由 ATLAS Schema ${originalVersion} 迁移到 ${ATLAS_SCHEMA_VERSION}；流程语义默认按“模块协作示意”处理，关系作用域按 1.4 双维度规则迁移，未新增运行时结论。`,
         ],
       }
     : raw.snapshot;
@@ -237,6 +418,59 @@ function normalizeDatasetV13(
     modules,
     flows,
     repositories,
+    snapshot,
+  };
+}
+
+/**
+ * 1.3 → 1.4：模块增加仓库归属；关系作用域在 validateRelation 中逐条迁移。
+ * 不修改节点、提交、证据或审核记录，只补 1.4 必需的结构字段。
+ */
+function normalizeDatasetV14(
+  raw: Record<string, unknown>,
+  originalVersion: string,
+): Record<string, unknown> {
+  const snapshotRepository =
+    isRecord(raw.snapshot) && isRecord(raw.snapshot.repository) &&
+    typeof raw.snapshot.repository.id === 'string'
+      ? raw.snapshot.repository.id
+      : null;
+  const registeredRepositories = Array.isArray(raw.repositories)
+    ? (raw.repositories as Record<string, unknown>[])
+        .map((entry) => (isRecord(entry) && typeof entry.id === 'string' ? entry.id : null))
+        .filter((id): id is string => !!id)
+    : [];
+  const fallbackRepository =
+    snapshotRepository ?? registeredRepositories[0] ?? (raw.source && isRecord(raw.source) && raw.source.kind === 'demo' ? 'demo' : 'unknown');
+  const modules = Array.isArray(raw.modules)
+    ? (raw.modules as Record<string, unknown>[]).map((module) => {
+        const repository =
+          typeof module.repository === 'string' && module.repository.trim()
+            ? module.repository
+            : fallbackRepository;
+        const system = isAtlasSystemId(module.system)
+          ? module.system
+          : isAtlasSystemId(repository)
+            ? repository
+            : 'nexus';
+        return { ...module, repository, system };
+      })
+    : raw.modules;
+  const snapshot = isRecord(raw.snapshot)
+    ? {
+        ...raw.snapshot,
+        notes: [
+          ...(Array.isArray(raw.snapshot.notes) ? raw.snapshot.notes : []),
+          `P1.4 关系作用域迁移：旧版单一 scope 拆分为 repositoryScope / runtimeScope；没有节点运行时边界证据的关系保持 runtimeScope=unknown，不推断为同进程。`,
+        ],
+      }
+    : raw.snapshot;
+  return {
+    ...raw,
+    schemaVersion: ATLAS_SCHEMA_VERSION,
+    schemaMigratedFrom:
+      typeof raw.schemaMigratedFrom === 'string' ? raw.schemaMigratedFrom : originalVersion,
+    modules,
     snapshot,
   };
 }
@@ -459,7 +693,7 @@ function migrateDatasetV1(raw: Record<string, unknown>): Record<string, unknown>
         ...raw.snapshot,
         notes: [
           ...(Array.isArray(raw.snapshot.notes) ? raw.snapshot.notes : []),
-          '数据集由 ATLAS Schema 1.0.0 迁移到 1.3.0；原始快照字段未改写。',
+          `数据集由 ATLAS Schema 1.0.0 迁移到 ${ATLAS_SCHEMA_VERSION}；原始快照字段未改写。`,
         ],
       }
     : raw.snapshot;
@@ -528,10 +762,112 @@ function validateNode(raw: unknown, index: number): AtlasNode {
   return node;
 }
 
+/**
+ * 1.3 单一 scope → 1.4 双维度。迁移只使用显式旧值、节点边界和已有运行时
+ * 证据；没有证据时 runtimeScope=unknown，不把“同仓库”或“同文件”当作
+ * 同进程。
+ */
+function migrateLegacyRelationScopes(
+  raw: Record<string, unknown>,
+  fromNode: AtlasNode,
+  toNode: AtlasNode,
+): {
+  repositoryScope: AtlasRepositoryScope;
+  runtimeScope: AtlasRuntimeScope;
+  runtimeVerified: boolean;
+  scopeNote: string | null;
+  legacyScope: AtlasRelationScope | null;
+  downgraded: boolean;
+} {
+  const legacyScope =
+    raw.scope === undefined || raw.scope === null
+      ? null
+      : isLegacyRelationScope(raw.scope)
+        ? raw.scope
+        : (() => {
+            throw new AtlasDataError('ATLAS_DATASET_INVALID', '旧版 relation.scope 非法。');
+          })();
+  const crossRepositoryByNodes = fromNode.repository !== toNode.repository;
+  if (legacyScope === 'cross-repository' && !crossRepositoryByNodes) {
+    throw new AtlasDataError(
+      'ATLAS_DATASET_CROSS_REPO_INVALID',
+      '旧版关系标记为跨仓库，但两端属于同一仓库。',
+    );
+  }
+  if (legacyScope === 'intra-repository' && crossRepositoryByNodes) {
+    throw new AtlasDataError(
+      'ATLAS_DATASET_CROSS_REPO_INVALID',
+      '旧版关系标记为仓库内，但两端属于不同仓库。',
+    );
+  }
+  const repositoryScope: AtlasRepositoryScope = crossRepositoryByNodes
+    ? 'cross-repository'
+    : 'intra-repository';
+  const derived = deriveRuntimeScope(fromNode.runtimeBoundary, toNode.runtimeBoundary);
+  if (legacyScope === 'cross-process' && derived === 'intra-runtime') {
+    throw new AtlasDataError(
+      'ATLAS_DATASET_CROSS_REPO_INVALID',
+      '旧版关系声明 cross-process，但两端节点的 runtimeBoundary 相同；声明与节点事实矛盾。',
+    );
+  }
+
+  const notes: string[] = [];
+  let runtimeScope: AtlasRuntimeScope;
+  if (legacyScope === 'cross-process') {
+    runtimeScope = 'cross-runtime';
+    notes.push('1.3 scope=cross-process 显式声明运行时跨边界，迁移为 runtimeScope=cross-runtime。');
+  } else if (derived === 'cross-runtime') {
+    runtimeScope = 'cross-runtime';
+    notes.push('两端节点都有已知且不同的 runtimeBoundary，迁移为 cross-runtime。');
+  } else if (derived === 'intra-runtime') {
+    runtimeScope = 'intra-runtime';
+    notes.push('两端节点都有已知且相同的 runtimeBoundary，迁移为 intra-runtime。');
+  } else {
+    runtimeScope = 'unknown';
+    if (legacyScope !== null) {
+      notes.push('旧 scope 不包含运行时维度，节点也没有足够的运行时边界证据；runtimeScope=unknown。');
+    }
+  }
+
+  let runtimeVerified = raw.runtimeVerified === true;
+  let downgraded = false;
+  const runtimeEvidence = Array.isArray(raw.runtimeEvidence) ? raw.runtimeEvidence : [];
+  if (runtimeVerified) {
+    const typed =
+      runtimeEvidence.length > 0 &&
+      runtimeEvidence.every((entry) => isRecord(entry) && isRuntimeEvidenceKind(entry.kind));
+    const reviewed =
+      isRecord(raw.review) &&
+      (raw.review.method === 'ai-source-review' || raw.review.method === 'human-review') &&
+      raw.review.status !== 'unverified';
+    if (!typed || !reviewed || runtimeScope === 'unknown') {
+      runtimeVerified = false;
+      downgraded = true;
+      notes.push(
+        '旧版 runtimeVerified=true 缺少带类型的运行时证据、复核或可判定作用域；迁移后保持未验证，原始 runtimeEvidence 保留。',
+      );
+    }
+  }
+
+  return {
+    repositoryScope,
+    runtimeScope,
+    runtimeVerified,
+    scopeNote: notes.length ? notes.join(' ') : null,
+    legacyScope,
+    downgraded,
+  };
+}
+
 function validateRelation(
   raw: unknown,
   index: number,
   nodeById: Map<string, AtlasNode>,
+  options: {
+    originalMinor: number;
+    repositories: AtlasRepositoryRecord[];
+    scopeMigration: AtlasScopeMigrationSummary | null;
+  },
 ): AtlasRelation {
   if (!isRecord(raw)) {
     throw new AtlasDataError('ATLAS_DATASET_INVALID', `relations[${index}] 必须是对象。`);
@@ -560,80 +896,189 @@ function validateRelation(
     validateRelativeFile(relation.evidence.file, `relations[${index}].evidence.file`);
   }
 
-  const scope = relation.scope ?? 'intra-repository';
-  if (!isRelationScope(scope)) {
-    throw new AtlasDataError('ATLAS_DATASET_INVALID', `relations[${index}].scope 非法。`);
+  const commits = evidenceCommitMap(options.repositories);
+  if (relation.evidence) {
+    validateEvidenceBinding(relation.evidence, commits, `relations[${index}].evidence`);
   }
-  if (relation.runtimeVerified !== undefined && typeof relation.runtimeVerified !== 'boolean') {
-    throw new AtlasDataError('ATLAS_DATASET_INVALID', `relations[${index}].runtimeVerified 必须是布尔值。`);
-  }
-  if (relation.runtimeEvidence !== undefined) {
-    if (!Array.isArray(relation.runtimeEvidence)) {
-      throw new AtlasDataError('ATLAS_DATASET_INVALID', `relations[${index}].runtimeEvidence 必须是数组。`);
+  const legacyMigration =
+    options.originalMinor < 4 ? migrateLegacyRelationScopes(raw, fromNode, toNode) : null;
+
+  let repositoryScope: AtlasRepositoryScope;
+  let runtimeScope: AtlasRuntimeScope;
+  let runtimeVerified: boolean;
+  let runtimeEvidence: AtlasRuntimeEvidenceRef[];
+  let interfaceEvidence: AtlasContractEvidenceRef[];
+  let legacyScope: AtlasRelationScope | null = null;
+  let scopeNote: string | null = null;
+
+  if (legacyMigration) {
+    repositoryScope = legacyMigration.repositoryScope;
+    runtimeScope = legacyMigration.runtimeScope;
+    runtimeVerified = legacyMigration.runtimeVerified;
+    legacyScope = legacyMigration.legacyScope;
+    scopeNote = legacyMigration.scopeNote;
+  } else {
+    if (!isRepositoryScope(relation.repositoryScope)) {
+      throw new AtlasDataError(
+        'ATLAS_DATASET_INVALID',
+        `relations[${index}]（Schema 1.4）必须显式声明 repositoryScope，且不能使用旧的 scope 枚举。`,
+      );
     }
-    relation.runtimeEvidence.forEach((evidence, evidenceIndex) =>
-      validateEvidenceRef(evidence, `relations[${index}].runtimeEvidence[${evidenceIndex}]`),
-    );
+    if (!isRuntimeScope(relation.runtimeScope)) {
+      throw new AtlasDataError(
+        'ATLAS_DATASET_INVALID',
+        `relations[${index}]（Schema 1.4）必须显式声明 runtimeScope（intra-runtime / cross-runtime / unknown）。`,
+      );
+    }
+    if (relation.runtimeVerified !== undefined && typeof relation.runtimeVerified !== 'boolean') {
+      throw new AtlasDataError('ATLAS_DATASET_INVALID', `relations[${index}].runtimeVerified 必须是布尔值。`);
+    }
+    repositoryScope = relation.repositoryScope;
+    runtimeScope = relation.runtimeScope;
+    runtimeVerified = relation.runtimeVerified === true;
+    legacyScope = isLegacyRelationScope(relation.legacyScope) ? relation.legacyScope : null;
+    scopeNote = typeof relation.scopeNote === 'string' ? relation.scopeNote : null;
   }
+
+  runtimeEvidence = validateRuntimeEvidence(
+    raw.runtimeEvidence,
+    `relations[${index}].runtimeEvidence`,
+    commits,
+  );
+  interfaceEvidence = validateContractEvidence(
+    raw.interfaceEvidence,
+    `relations[${index}].interfaceEvidence`,
+    commits,
+  );
 
   const crossRepository = fromNode.repository !== toNode.repository;
-  if (crossRepository && scope !== 'cross-repository') {
+  if (crossRepository !== (repositoryScope === 'cross-repository')) {
     throw new AtlasDataError(
       'ATLAS_DATASET_CROSS_REPO_INVALID',
-      `relations[${index}] 连接不同仓库（${fromNode.repository} → ${toNode.repository}），必须标记 scope=cross-repository。`,
+      crossRepository
+        ? `relations[${index}] 连接不同仓库（${fromNode.repository} → ${toNode.repository}），必须声明 repositoryScope=cross-repository。`
+        : `relations[${index}] 声明为跨仓库，但两端属于同一仓库（${fromNode.repository}）。`,
     );
   }
-  if (!crossRepository && scope === 'cross-repository') {
+
+  const derivedRuntime = deriveRuntimeScope(
+    fromNode.runtimeBoundary,
+    toNode.runtimeBoundary,
+  );
+  if (derivedRuntime === 'cross-runtime' && runtimeScope !== 'cross-runtime') {
     throw new AtlasDataError(
       'ATLAS_DATASET_CROSS_REPO_INVALID',
-      `relations[${index}] 标记为跨仓库，但两端属于同一仓库。`,
+      `relations[${index}] 两端位于不同运行时（${fromNode.runtimeBoundary} → ${toNode.runtimeBoundary}），必须声明 runtimeScope=cross-runtime。`,
     );
   }
+  if (derivedRuntime === 'intra-runtime' && runtimeScope !== 'intra-runtime') {
+    throw new AtlasDataError(
+      'ATLAS_DATASET_CROSS_REPO_INVALID',
+      `relations[${index}] 两端都有相同的已知运行时边界（${fromNode.runtimeBoundary}），必须声明 runtimeScope=intra-runtime。`,
+    );
+  }
+  if (derivedRuntime === 'unknown' && runtimeScope === 'intra-runtime') {
+    throw new AtlasDataError(
+      'ATLAS_DATASET_CROSS_REPO_INVALID',
+      `relations[${index}] 运行时边界未知，不能推断为 intra-runtime；请使用 runtimeScope=unknown。`,
+    );
+  }
+  if (
+    derivedRuntime === 'unknown' &&
+    runtimeScope === 'cross-runtime' &&
+    options.originalMinor >= 4 &&
+    !legacyScope &&
+    !runtimeEvidence.length
+  ) {
+    throw new AtlasDataError(
+      'ATLAS_DATASET_CROSS_REPO_INVALID',
+      `relations[${index}] 在运行时边界未知时声明 cross-runtime，必须提供带类型的 runtimeEvidence。`,
+    );
+  }
+  if (runtimeScope === 'intra-runtime' && repositoryScope === 'cross-repository') {
+    // 跨仓库但同运行时是合法的；这里只保留明确说明，不强制拆分。
+    scopeNote = scopeNote ?? '跨仓库但两端运行时边界相同；仓库维度与运行时维度分别记录。';
+  }
+
   if (crossRepository) {
-    const reviewed =
-      (relation.review.method === 'ai-source-review' ||
-        relation.review.method === 'human-review') &&
-      relation.review.status !== 'unverified';
-    const hasEvidence = relation.evidence !== null || relation.review.evidence.length > 0;
-    if (!reviewed || !hasEvidence) {
+    if (!isReviewed(relation.review)) {
       throw new AtlasDataError(
         'ATLAS_DATASET_CROSS_REPO_INVALID',
-        `relations[${index}] 跨仓库关系必须提供接口/协议证据并经过 AI 或人工复核。`,
+        `relations[${index}] 跨仓库候选关系尚未经过 AI 或人工复核，不能进入已确认关系图。`,
+      );
+    }
+    const hasSourceEvidence = relation.evidence !== null || relation.review.evidence.length > 0;
+    if (!hasSourceEvidence && !interfaceEvidence.length) {
+      throw new AtlasDataError(
+        'ATLAS_DATASET_CROSS_REPO_INVALID',
+        `relations[${index}] 跨仓库关系必须提供源码定位或接口/协议证据。`,
+      );
+    }
+    if (options.originalMinor >= 4 && !legacyScope && !interfaceEvidence.length) {
+      throw new AtlasDataError(
+        'ATLAS_DATASET_CROSS_REPO_INVALID',
+        `relations[${index}] Schema 1.4 跨仓库关系必须提供 interfaceEvidence（API 契约、协议 schema、包清单、契约/集成测试等）。`,
+      );
+    }
+    if (!interfaceEvidence.length && !(scopeNote ?? '').includes('未确认候选')) {
+      scopeNote = [scopeNote, LEGACY_CANDIDATE_NOTE].filter(Boolean).join(' ');
+    }
+  }
+
+  if (runtimeVerified) {
+    if (!isReviewed(relation.review)) {
+      throw new AtlasDataError(
+        'ATLAS_DATASET_CROSS_REPO_INVALID',
+        `relations[${index}] runtimeVerified=true 必须经过 AI 或人工复核；AI 源码复核本身不等于运行时已验证。`,
+      );
+    }
+    if (runtimeScope === 'unknown') {
+      throw new AtlasDataError(
+        'ATLAS_DATASET_CROSS_REPO_INVALID',
+        `relations[${index}] runtimeVerified=true 但 runtimeScope=unknown；必须先用运行时证据确定作用域。`,
+      );
+    }
+    if (!runtimeEvidence.length) {
+      throw new AtlasDataError(
+        'ATLAS_DATASET_CROSS_REPO_INVALID',
+        `relations[${index}] 声称运行时已验证，但没有 runtimeEvidence。`,
+      );
+    }
+    if (runtimeEvidence.some((evidence) => !isRuntimeEvidenceKind(evidence.kind))) {
+      throw new AtlasDataError(
+        'ATLAS_DATASET_CROSS_REPO_INVALID',
+        `relations[${index}] runtimeVerified=true 时，每条 runtimeEvidence 都必须标注证据类型（trace / log / protocol-test 等）。`,
       );
     }
   }
 
-  const fromBoundary = fromNode.runtimeBoundary ?? null;
-  const toBoundary = toNode.runtimeBoundary ?? null;
-  const knownBoundary = (value: AtlasRuntimeBoundary | null): value is AtlasRuntimeBoundary =>
-    value !== null && value !== 'unknown' && value !== 'shared';
-  const crossProcess =
-    knownBoundary(fromBoundary) && knownBoundary(toBoundary) && fromBoundary !== toBoundary;
-  if (crossProcess && scope !== 'cross-process') {
-    if (scope === 'cross-repository') {
-      throw new AtlasDataError(
-        'ATLAS_DATASET_CROSS_REPO_INVALID',
-        `relations[${index}] 同时跨仓库和跨进程；请拆分关系或显式标记 cross-process，不能把两个运行时混在一起。`,
-      );
-    }
-    throw new AtlasDataError(
-      'ATLAS_DATASET_CROSS_REPO_INVALID',
-      `relations[${index}] 两端位于不同运行时（${fromBoundary} → ${toBoundary}），必须标记 scope=cross-process。`,
+  if (options.scopeMigration && legacyMigration) {
+    countScopeMigration(
+      options.scopeMigration,
+      {
+        ...relation,
+        repositoryScope,
+        runtimeScope,
+        runtimeVerified,
+        runtimeEvidence,
+        interfaceEvidence,
+      },
+      legacyMigration.legacyScope,
+      legacyMigration.downgraded,
     );
   }
-  if (!crossProcess && scope === 'cross-process') {
-    throw new AtlasDataError(
-      'ATLAS_DATASET_CROSS_REPO_INVALID',
-      `relations[${index}] 标记为跨进程，但两端没有已知且不同的运行时边界。`,
-    );
-  }
-  if (relation.runtimeVerified === true && !(relation.runtimeEvidence?.length)) {
-    throw new AtlasDataError(
-      'ATLAS_DATASET_CROSS_REPO_INVALID',
-      `relations[${index}] 声称运行时已验证，但没有 runtimeEvidence。`,
-    );
-  }
-  return relation;
+
+  const { scope: _legacyScopeField, ...rest } = raw;
+  return {
+    ...(rest as unknown as AtlasRelation),
+    repositoryScope,
+    runtimeScope,
+    runtimeVerified,
+    runtimeEvidence,
+    interfaceEvidence,
+    legacyScope,
+    scopeNote,
+  };
 }
 
 function validateModule(raw: unknown, index: number): AtlasModuleRecord {
@@ -642,9 +1087,13 @@ function validateModule(raw: unknown, index: number): AtlasModuleRecord {
   }
   const module = raw as unknown as AtlasModuleRecord;
   if (!isAtlasModuleId(module.id)) {
-    throw new AtlasDataError('ATLAS_DATASET_INVALID', `modules[${index}].id 不是合法模块。`);
+    throw new AtlasDataError('ATLAS_DATASET_MODULE_INVALID', `modules[${index}].id 不是合法模块。`);
   }
   requireString(module.name, `modules[${index}].name`);
+  requireString(module.repository, `modules[${index}].repository`);
+  if (!isAtlasSystemId(module.system)) {
+    throw new AtlasDataError('ATLAS_DATASET_MODULE_INVALID', `modules[${index}].system 非法。`);
+  }
   if (!REVIEW_VALUES.includes(module.review)) {
     throw new AtlasDataError('ATLAS_DATASET_INVALID', `modules[${index}].review 状态非法。`);
   }
@@ -674,6 +1123,70 @@ function validateModule(raw: unknown, index: number): AtlasModuleRecord {
     throw new AtlasDataError('ATLAS_DATASET_INVALID', `modules[${index}] 缺少 stats 或 evidence。`);
   }
   return module;
+}
+
+/**
+ * 模块归属与节点绑定：
+ * - 模块 ID 在数据集内唯一；
+ * - 模块必须属于已登记仓库，且系统与仓库一致；
+ * - 节点的 moduleId/moduleIds 必须引用同一仓库的模块定义。
+ * 这阻止把 CRM 节点套进 NEXUS 的四模块，也阻止跨仓库重复使用模块 ID。
+ */
+function validateModuleBindings(
+  modules: AtlasModuleRecord[],
+  nodes: AtlasNode[],
+  repositories: AtlasRepositoryRecord[],
+): void {
+  const repositoryById = new Map(repositories.map((repository) => [repository.id, repository]));
+  const moduleById = new Map<string, AtlasModuleRecord>();
+  for (const [index, module] of modules.entries()) {
+    if (moduleById.has(module.id)) {
+      throw new AtlasDataError('ATLAS_DATASET_MODULE_INVALID', `模块 ID 重复：${module.id}。`);
+    }
+    moduleById.set(module.id, module);
+    if (repositories.length) {
+      const repository = repositoryById.get(module.repository);
+      if (!repository) {
+        throw new AtlasDataError(
+          'ATLAS_DATASET_MODULE_INVALID',
+          `modules[${index}].repository=${module.repository} 不在仓库登记表中。`,
+        );
+      }
+      if (module.system !== repository.system) {
+        throw new AtlasDataError(
+          'ATLAS_DATASET_MODULE_INVALID',
+          `modules[${index}].system=${module.system} 与仓库 ${module.repository}（${repository.system}）不一致。`,
+        );
+      }
+    }
+  }
+  for (const [index, node] of nodes.entries()) {
+    const ids = node.moduleIds;
+    if (new Set(ids).size !== ids.length) {
+      throw new AtlasDataError('ATLAS_DATASET_MODULE_INVALID', `nodes[${index}].moduleIds 含重复模块。`);
+    }
+    if (node.moduleId !== null && (node.moduleIds[0] !== node.moduleId || !ids.includes(node.moduleId))) {
+      throw new AtlasDataError(
+        'ATLAS_DATASET_MODULE_INVALID',
+        `nodes[${index}].moduleId 必须是 moduleIds 的首项。`,
+      );
+    }
+    for (const moduleId of ids) {
+      const module = moduleById.get(moduleId);
+      if (!module) {
+        throw new AtlasDataError(
+          'ATLAS_DATASET_MODULE_INVALID',
+          `nodes[${index}] 引用了不存在的模块：${moduleId}。`,
+        );
+      }
+      if (module.repository !== node.repository) {
+        throw new AtlasDataError(
+          'ATLAS_DATASET_MODULE_INVALID',
+          `nodes[${index}]（${node.repository}）不能引用 ${module.repository} 的模块 ${moduleId}。`,
+        );
+      }
+    }
+  }
 }
 
 function flowSymbolMatches(nodeSymbol: string, stepSymbol: string): boolean {
@@ -800,6 +1313,7 @@ function validateRepositories(raw: unknown): AtlasRepositoryRecord[] {
   }
   const ids = new Set<string>();
   const snapshotKeys = new Set<string>();
+  const snapshotIds = new Set<string>();
   return raw.map((entry, index) => {
     if (!isRecord(entry)) {
       throw new AtlasDataError('ATLAS_DATASET_REPOSITORY_INVALID', `repositories[${index}] 必须是对象。`);
@@ -816,18 +1330,31 @@ function validateRepositories(raw: unknown): AtlasRepositoryRecord[] {
     if (!isAtlasSystemId(entry.system)) {
       throw new AtlasDataError('ATLAS_DATASET_REPOSITORY_INVALID', `repositories[${index}].system 非法。`);
     }
-    if (!Array.isArray(entry.snapshots)) {
-      throw new AtlasDataError('ATLAS_DATASET_REPOSITORY_INVALID', `repositories[${index}].snapshots 必须是数组。`);
+    if (!Array.isArray(entry.snapshots) || !entry.snapshots.length) {
+      throw new AtlasDataError(
+        'ATLAS_DATASET_REPOSITORY_INVALID',
+        `repositories[${index}].snapshots 必须是至少包含一个历史快照的数组。`,
+      );
     }
     const snapshots = entry.snapshots.map((snapshot, snapshotIndex) => {
       const field = `repositories[${index}].snapshots[${snapshotIndex}]`;
       if (!isRecord(snapshot)) {
         throw new AtlasDataError('ATLAS_DATASET_REPOSITORY_INVALID', `${field} 必须是对象。`);
       }
-      requireString(snapshot.snapshotId, `${field}.snapshotId`);
+      const snapshotId = requireString(snapshot.snapshotId, `${field}.snapshotId`);
+      if (snapshotIds.has(snapshotId)) {
+        throw new AtlasDataError('ATLAS_DATASET_REPOSITORY_INVALID', `快照 ID 重复：${snapshotId}。`);
+      }
+      snapshotIds.add(snapshotId);
       const snapshotKey = requireString(snapshot.snapshotKey, `${field}.snapshotKey`);
       if (snapshotKeys.has(snapshotKey)) {
         throw new AtlasDataError('ATLAS_DATASET_REPOSITORY_INVALID', `快照标识重复：${snapshotKey}。`);
+      }
+      if (!snapshotKey.startsWith(`${id}@`)) {
+        throw new AtlasDataError(
+          'ATLAS_DATASET_REPOSITORY_INVALID',
+          `${field}.snapshotKey 必须以仓库 ID（${id}@）开头，避免不同仓库的快照标识冲突。`,
+        );
       }
       snapshotKeys.add(snapshotKey);
       requireString(snapshot.commit, `${field}.commit`);
@@ -862,6 +1389,7 @@ function validateRepositoryBindings(
   nodes: AtlasNode[],
 ): void {
   const repositoryIds = new Set(repositories.map((repository) => repository.id));
+  const commits = evidenceCommitMap(repositories);
   for (const [index, node] of nodes.entries()) {
     requireString(node.repository, `nodes[${index}].repository`);
     if (repositories.length && !repositoryIds.has(node.repository)) {
@@ -877,6 +1405,13 @@ function validateRepositoryBindings(
         `nodes[${index}].id 的仓库前缀（${prefix ?? '缺失'}）与 repository=${node.repository} 不一致。`,
       );
     }
+    node.evidence.forEach((evidence, evidenceIndex) =>
+      validateEvidenceBinding(
+        evidence,
+        commits,
+        `nodes[${index}].evidence[${evidenceIndex}]`,
+      ),
+    );
   }
   if (snapshot) {
     const snapshotRepository = repositories.find(
@@ -970,7 +1505,8 @@ export function parseAtlasDataset(rawInput: unknown): AtlasDataset {
     );
   }
   const migrated = minor < 1 ? migrateDatasetV1(rawInput) : rawInput;
-  const raw = minor < 3 ? normalizeDatasetV13(migrated, version) : migrated;
+  const migratedV13 = minor < 3 ? normalizeDatasetV13(migrated, version) : migrated;
+  const raw = minor < 4 ? normalizeDatasetV14(migratedV13, version) : migratedV13;
   if (!isRecord(raw.source) || !SOURCE_KINDS.includes(raw.source.kind as AtlasSourceKind)) {
     throw new AtlasDataError('ATLAS_DATASET_INVALID', 'source.kind 必须是 demo 或 graphify。');
   }
@@ -1005,10 +1541,26 @@ export function parseAtlasDataset(rawInput: unknown): AtlasDataset {
     );
   }
   validateRepositoryBindings(repositories, (raw.snapshot ?? null) as AtlasDataset['snapshot'], nodes);
-  const relations = rawRelations.map((relation, index) =>
-    validateRelation(relation, index, nodeById),
-  );
   const modules = raw.modules.map((module, index) => validateModule(module, index));
+  validateModuleBindings(modules, nodes, repositories);
+  const scopeMigration = minor < 4 ? emptyScopeMigration(version) : null;
+  const relations = rawRelations.map((relation, index) =>
+    validateRelation(relation, index, nodeById, {
+      originalMinor: minor,
+      repositories,
+      scopeMigration,
+    }),
+  );
+  const relationIds = new Set<string>();
+  for (const [index, relation] of relations.entries()) {
+    if (relationIds.has(relation.id)) {
+      throw new AtlasDataError(
+        'ATLAS_DATASET_DUPLICATE_RELATION',
+        `relations[${index}] 重复关系 ID：${relation.id}。同一快照内关系 ID 必须唯一。`,
+      );
+    }
+    relationIds.add(relation.id);
+  }
   const flows = Array.isArray(raw.flows)
     ? raw.flows.map((flow, index) => validateFlow(flow, index, nodes))
     : [];
@@ -1023,6 +1575,24 @@ export function parseAtlasDataset(rawInput: unknown): AtlasDataset {
   };
   validateSnapshot(raw as unknown as AtlasDataset);
 
+  if (scopeMigration) {
+    scopeMigration.notes = [
+      '旧数据没有节点 runtimeBoundary 时，runtimeScope 一律保持 unknown；同仓库、同文件或同目录都不等于同进程。',
+      '旧版 scope=cross-process 只迁移运行时维度；仓库维度由两端 repository 独立计算，二者可以同时成立。',
+      `本数据集共迁移 ${relations.length} 条关系；原始 evidence、review、commit 与 legacyScope 均保留。`,
+    ];
+    if (scopeMigration.runtimeVerifiedDowngraded) {
+      scopeMigration.notes.push(
+        `有 ${scopeMigration.runtimeVerifiedDowngraded} 条旧 runtimeVerified=true 因缺少带类型运行时证据或复核被降级为 false；原始 runtimeEvidence 未删除。`,
+      );
+    }
+    if (scopeMigration.repositoryScopes.crossRepository) {
+      scopeMigration.notes.push(
+        '旧版跨仓库关系若没有 1.4 interfaceEvidence，会保留为未确认候选，不进入已确认跨仓库关系图。',
+      );
+    }
+  }
+
   return canonicalize({
     ...(raw as unknown as AtlasDataset),
     nodes,
@@ -1030,6 +1600,7 @@ export function parseAtlasDataset(rawInput: unknown): AtlasDataset {
     modules,
     flows,
     repositories,
+    ...(scopeMigration ? { scopeMigration } : {}),
     diagnostics: diagnostics as unknown as AtlasDataset['diagnostics'],
   });
 }

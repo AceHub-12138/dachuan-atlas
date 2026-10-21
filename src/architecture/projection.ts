@@ -396,8 +396,24 @@ function moduleOrderRank(moduleId: AtlasModuleId | null): number {
   return index < 0 ? 99 : index;
 }
 
+/** 数据集的主仓库；模块星图只绘制该仓库的模块，避免多仓库节点混入。 */
+export function primaryRepository(dataset: AtlasDataset): string | null {
+  return (
+    dataset.snapshot?.repository.id ??
+    dataset.repositories?.[0]?.id ??
+    dataset.modules[0]?.repository ??
+    null
+  );
+}
+
+export function moduleRepository(dataset: AtlasDataset, moduleId: AtlasModuleId): string | null {
+  return dataset.modules.find((module) => module.id === moduleId)?.repository ?? null;
+}
+
 function makeModuleNodes(dataset: AtlasDataset): ProjectionNode[] {
+  const repositoryId = primaryRepository(dataset);
   return dataset.modules
+    .filter((module) => !repositoryId || module.repository === repositoryId)
     .slice()
     .sort((a, b) => moduleOrderRank(a.id) - moduleOrderRank(b.id))
     .map((module) => ({
@@ -422,6 +438,8 @@ function buildModuleEdges(dataset: AtlasDataset): ProjectionEdge[] {
   if (dataset.source.kind !== 'graphify') return [];
   const nodeById = new Map(dataset.nodes.map((node) => [node.id, node]));
   const moduleNames = new Map(dataset.modules.map((module) => [module.id, module.name]));
+  const moduleById = new Map(dataset.modules.map((module) => [module.id, module]));
+  const repositoryId = primaryRepository(dataset);
   const groups = new Map<string, { from: AtlasModuleId; to: AtlasModuleId; facts: ProjectionRelationFact[] }>();
 
   for (const relation of dataset.relations) {
@@ -429,8 +447,14 @@ function buildModuleEdges(dataset: AtlasDataset): ProjectionEdge[] {
     const from = nodeById.get(relation.from);
     const to = nodeById.get(relation.to);
     if (!from || !to) continue;
+    if (from.repository !== to.repository) continue;
+    if (repositoryId && from.repository !== repositoryId) continue;
     if (from.scope !== 'product' || to.scope !== 'product') continue;
     if (!from.moduleId || !to.moduleId || from.moduleId === to.moduleId) continue;
+    const fromModule = moduleById.get(from.moduleId);
+    const toModule = moduleById.get(to.moduleId);
+    if (!fromModule || !toModule) continue;
+    if (fromModule.repository !== from.repository || toModule.repository !== to.repository) continue;
     const key = `${from.moduleId}>${to.moduleId}`;
     let group = groups.get(key);
     if (!group) {
@@ -512,8 +536,13 @@ interface FileMetric {
 }
 
 function buildFileMetrics(dataset: AtlasDataset, moduleId: AtlasModuleId): Map<string, FileMetric> {
+  const repositoryId = moduleRepository(dataset, moduleId);
   const nodes = dataset.nodes.filter(
-    (node) => node.scope === 'product' && node.sourceFile && node.moduleIds.includes(moduleId),
+    (node) =>
+      node.scope === 'product' &&
+      node.sourceFile &&
+      node.moduleIds.includes(moduleId) &&
+      (!repositoryId || node.repository === repositoryId),
   );
   const metrics = new Map<string, FileMetric>();
   for (const node of nodes) {
@@ -575,6 +604,7 @@ export function fileProjection(dataset: AtlasDataset, moduleId: AtlasModuleId): 
 
 function buildFileProjection(dataset: AtlasDataset, moduleId: AtlasModuleId): GraphProjection {
   const moduleName = dataset.modules.find((module) => module.id === moduleId)?.name ?? moduleId;
+  const repositoryId = moduleRepository(dataset, moduleId);
   const metrics = buildFileMetrics(dataset, moduleId);
   const nodeById = new Map(dataset.nodes.map((node) => [node.id, node]));
   const supportOnly = [...metrics.values()].every((metric) => metric.primaryCount === 0);
@@ -586,6 +616,8 @@ function buildFileProjection(dataset: AtlasDataset, moduleId: AtlasModuleId): Gr
     const from = nodeById.get(relation.from);
     const to = nodeById.get(relation.to);
     if (!from || !to || from.scope !== 'product' || to.scope !== 'product') continue;
+    if (from.repository !== to.repository) continue;
+    if (repositoryId && from.repository !== repositoryId) continue;
     if (!from.sourceFile || !to.sourceFile || from.sourceFile === to.sourceFile) continue;
     if (from.moduleIds.includes(moduleId) || to.moduleIds.includes(moduleId)) relevant.push(relation);
   }
@@ -696,7 +728,12 @@ function buildFileProjection(dataset: AtlasDataset, moduleId: AtlasModuleId): Gr
   }
   for (const file of counterparts) {
     if (nodeByIdForProjection.has(file)) continue;
-    const nodesInFile = dataset.nodes.filter((node) => node.sourceFile === file && node.scope === 'product');
+    const nodesInFile = dataset.nodes.filter(
+      (node) =>
+        node.sourceFile === file &&
+        node.scope === 'product' &&
+        (!repositoryId || node.repository === repositoryId),
+    );
     const owner = nodesInFile.find((node) => node.moduleId)?.moduleId ?? null;
     nodeByIdForProjection.set(file, {
       id: file,
@@ -774,9 +811,13 @@ function buildSymbolProjection(
   file: string,
 ): GraphProjection {
   const moduleName = dataset.modules.find((module) => module.id === moduleId)?.name ?? moduleId;
+  const repositoryId = moduleRepository(dataset, moduleId);
   const nodeById = new Map(dataset.nodes.map((node) => [node.id, node]));
   const focusNodes = dataset.nodes.filter(
-    (node) => node.scope === 'product' && node.sourceFile === file,
+    (node) =>
+      node.scope === 'product' &&
+      node.sourceFile === file &&
+      (!repositoryId || node.repository === repositoryId),
   );
   const focusIds = new Set(focusNodes.map((node) => node.id));
 
@@ -787,6 +828,8 @@ function buildSymbolProjection(
     const from = nodeById.get(relation.from);
     const to = nodeById.get(relation.to);
     if (!from || !to || from.scope !== 'product' || to.scope !== 'product') continue;
+    if (from.repository !== to.repository) continue;
+    if (repositoryId && from.repository !== repositoryId) continue;
     if (relation.from === relation.to) continue;
     incident.push(relation);
   }

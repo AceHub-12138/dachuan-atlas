@@ -65,7 +65,7 @@ describe('P1.3 流程语义区分', () => {
     delete legacy.repositories;
 
     const migrated = parseAtlasDataset(legacy);
-    expect(migrated.schemaVersion).toBe('1.3.0');
+    expect(migrated.schemaVersion).toBe('1.4.0');
     expect(migrated.schemaMigratedFrom).toBe('1.2.0');
     expect(migrated.flows[0].semantics).toBe('module-collaboration');
     expect(migrated.flows[0].runtimeOrder?.verified).toBe(false);

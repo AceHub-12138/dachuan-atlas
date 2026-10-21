@@ -78,7 +78,7 @@ export function NexusIntro({
               <button
                 type="button"
                 className="module-row is-available"
-                onClick={() => onOpenModule(module.id)}
+                onClick={() => onOpenModule(module.id as ModuleId)}
                 tabIndex={muted ? -1 : 0}
               >
                 <span className="module-row__index">{module.index}</span>

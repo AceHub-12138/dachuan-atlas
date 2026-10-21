@@ -1,5 +1,6 @@
 /**
- * ATLAS 标准架构数据 Schema（P1.0，P1.2 模块协作场景，P1.3 语义与多仓库准备）。
+ * ATLAS 标准架构数据 Schema（P1.0，P1.2 模块协作场景，P1.3 语义与多仓库准备，
+ * P1.4 仓库/运行时双维度作用域）。
  *
  * 这一层刻意与 Graphify 原始 JSON 解耦：Canvas 场景、详情面板和导入/导出
  * 都只读取这里的结构，不再直接消费 graph.json。
@@ -9,14 +10,21 @@
  *
  * 1.2.0 增加可选的 flows（模块协作场景）。
  * 1.3.0 增加流程语义（概念步骤 / 静态关联 / 运行时顺序）、模块“为什么需要它”
- * 的解释、以及多仓库/运行时边界的可选元数据。所有新字段都是可选的，1.0–1.2
- * 数据导入后会补上保守默认值，不改变源码事实。
+ * 的解释、以及多仓库/运行时边界的可选元数据。
+ * 1.4.0 把关系的仓库维度与运行时维度拆开：
+ *   - repositoryScope: intra-repository | cross-repository
+ *   - runtimeScope: intra-runtime | cross-runtime | unknown
+ * 两个维度正交，因此“跨仓库 + 跨进程”可以同时成立；“跨仓库”不再自动
+ * 等于“跨进程”，运行时边界未知时也绝不推断为同进程。
+ *
+ * 1.0–1.3 数据仍可导入：旧 relation.scope 会按显式规则迁移，原始证据与
+ * 审核记录保留；未知的运行时边界一律迁移为 unknown。
  */
 
 export const ATLAS_SCHEMA_ID = 'atlas.architecture';
-export const ATLAS_SCHEMA_VERSION = '1.3.0';
+export const ATLAS_SCHEMA_VERSION = '1.4.0';
 export const ATLAS_SCHEMA_MAJOR = 1;
-export const ATLAS_SCHEMA_MINOR = 3;
+export const ATLAS_SCHEMA_MINOR = 4;
 
 export type AtlasSourceKind = 'demo' | 'graphify';
 export type AtlasSourceOrigin = 'demo' | 'bundled' | 'file-import';
@@ -29,13 +37,18 @@ export type AtlasReviewMethod =
   | 'unverified';
 export type AtlasEvidenceConfidence = 'EXTRACTED' | 'INFERRED' | 'AMBIGUOUS' | 'SIMULATED' | 'UNKNOWN';
 export type AtlasSystemId = 'crm' | 'nexus' | 'electron';
-export type AtlasModuleId = 'data' | 'voice' | 'animation' | 'canvas';
+/**
+ * 模块 ID 在单个数据集内唯一。NEXUS 继续使用四个固定 ID；CRM / Electron
+ * 使用自己的模块集合，不能复用 NEXUS 的模块定义。模块归属由
+ * AtlasModuleRecord.repository 绑定到具体仓库。
+ */
+export type AtlasModuleId = 'data' | 'voice' | 'animation' | 'canvas' | (string & {});
 export type AtlasNodeKind = 'file' | 'symbol' | 'concept' | 'rationale' | 'external';
 export type AtlasScope = 'product' | 'test' | 'tooling' | 'external' | 'demo';
 /**
- * 代码实际执行的进程边界。P1.3 只定义可选字段，NEXUS 历史快照尚未逐节点
- * 标注，因此不能据此推断任何运行时调用。不同已知边界的节点之间的静态
- * 关系必须标记为 cross-process，避免把浏览器与服务端当成同一运行时。
+ * 代码实际执行的进程边界。NEXUS 历史快照尚未逐节点标注，因此不能据此
+ * 推断任何运行时调用。不同已知边界的节点之间的静态关系必须标记为
+ * cross-runtime，避免把浏览器与服务端当成同一运行时。
  */
 export type AtlasRuntimeBoundary =
   | 'browser-renderer'
@@ -44,8 +57,35 @@ export type AtlasRuntimeBoundary =
   | 'electron-renderer'
   | 'shared'
   | 'unknown';
-/** 关系的证据范围；缺省按 intra-repository 处理，兼容 1.0–1.2 数据。 */
+/**
+ * 1.3 及更早的单一枚举。它把仓库维度与运行时维度混在一起，无法表达
+ * “同一关系既跨仓库又跨进程”。1.4 只把它保留为迁移输入与审计原值。
+ */
 export type AtlasRelationScope = 'intra-repository' | 'cross-repository' | 'cross-process';
+/** 1.4 仓库维度：关系两端是否属于同一个仓库。 */
+export type AtlasRepositoryScope = 'intra-repository' | 'cross-repository';
+/**
+ * 1.4 运行时维度，与仓库维度正交：
+ * - intra-runtime：两端都有证据表明处在同一已知运行时；
+ * - cross-runtime：两端跨越运行时边界（同仓库或跨仓库都可能）；
+ * - unknown：没有足够边界或运行时证据；不得当作 intra-runtime。
+ */
+export type AtlasRuntimeScope = 'intra-runtime' | 'cross-runtime' | 'unknown';
+/** 只有这些证据类型可以支撑 runtimeVerified。 */
+export type AtlasRuntimeEvidenceKind =
+  | 'runtime-trace'
+  | 'runtime-log'
+  | 'protocol-test'
+  | 'integration-test'
+  | 'runtime-observation';
+/** 跨仓库关系必须携带的接口/协议证据类型。 */
+export type AtlasContractEvidenceKind =
+  | 'api-contract'
+  | 'protocol-schema'
+  | 'package-manifest'
+  | 'config-binding'
+  | 'contract-test'
+  | 'integration-test';
 export type AtlasSymbolType =
   | 'class'
   | 'function'
@@ -101,6 +141,24 @@ export interface AtlasEvidenceRef {
   symbol: string | null;
   /** 便于界面展示的定位符，例如 src/a.ts#L23。 */
   locator: string;
+}
+
+/**
+ * 运行时证据必须能说明它是哪一类真实运行记录。源码行、AI 复核意见或
+ * Graphify 静态边都不是运行时证据，不能单独支撑 runtimeVerified=true。
+ * 1.3 旧数据没有 kind；迁移时保留原证据位置，但把无法分类的
+ * runtimeVerified=true 降级为 false。
+ */
+export interface AtlasRuntimeEvidenceRef extends AtlasEvidenceRef {
+  kind?: AtlasRuntimeEvidenceKind | null;
+  capturedAt?: string | null;
+  note?: string | null;
+}
+
+/** 跨仓库接口/协议证据；与普通源码证据分开保存，避免把目录相似当成契约。 */
+export interface AtlasContractEvidenceRef extends AtlasEvidenceRef {
+  kind: AtlasContractEvidenceKind;
+  note?: string | null;
 }
 
 export interface AtlasUnresolvedCall {
@@ -163,14 +221,29 @@ export interface AtlasRelation {
   selfReference: boolean;
   context: string | null;
   /**
-   * P1.3 可选：关系范围。跨仓库关系必须显式标记，并用接口/协议证据复核；
-   * 不同进程之间的静态关系标记为 cross-process，不能当作同一运行时调用。
+   * P1.4 仓库维度。跨仓库关系必须显式标记、经过 AI/人工复核，并在 1.4
+   * 数据中携带 interfaceEvidence；旧版数据缺少分类时只能作为未确认候选
+   * 保留，不进入已确认跨仓库关系图。
    */
-  scope?: AtlasRelationScope;
-  /** 仅当有真实运行时证据时才为 true；默认 false。 */
-  runtimeVerified?: boolean;
-  /** 运行时证据（协议测试、日志、trace 等）；没有时为空数组。 */
-  runtimeEvidence?: AtlasEvidenceRef[];
+  repositoryScope: AtlasRepositoryScope;
+  /**
+   * P1.4 运行时维度。与 repositoryScope 正交：
+   * - 跨仓库 + 跨运行时可以同时成立；
+   * - 同仓库也可以跨运行时；
+   * - 跨仓库不自动等于跨运行时；
+   * - 边界未知时为 unknown，不得写成 intra-runtime。
+   */
+  runtimeScope: AtlasRuntimeScope;
+  /** 仅当有可追溯、带类型的运行时证据且经过复核时才为 true；默认 false。 */
+  runtimeVerified: boolean;
+  /** 运行时证据（trace、日志、协议/集成测试等）；没有时为空数组。 */
+  runtimeEvidence: AtlasRuntimeEvidenceRef[];
+  /** 跨仓库接口/协议证据；仓库内关系可以为空。 */
+  interfaceEvidence: AtlasContractEvidenceRef[];
+  /** 1.3 及更早的原始 scope，仅作迁移审计；不参与 1.4 判定。 */
+  legacyScope?: AtlasRelationScope | null;
+  /** 作用域迁移/判定的可读说明，不得用推测替代证据。 */
+  scopeNote?: string | null;
   flags: {
     deferred: boolean;
     typeOnly: boolean;
@@ -276,7 +349,9 @@ export interface AtlasModuleRecord {
   index: string;
   name: string;
   latin: string;
-  system: 'nexus';
+  /** 模块定义所属仓库；CRM / Electron 不能复用 NEXUS 的模块定义。 */
+  repository: string;
+  system: AtlasSystemId;
   /** 兼容字段：组成核对状态。具体审核方式见 reviewRecord。 */
   review: AtlasReviewStatus;
   reviewRecord: AtlasReview;
@@ -439,11 +514,36 @@ export interface AtlasRepositoryRecord {
   snapshots: AtlasRepositorySnapshotRef[];
 }
 
+/**
+ * 从 1.3 及更早数据迁移关系作用域时的汇总。逐条迁移说明仍保留在
+ * relation.scopeNote，这里只给出可审计的总量，避免每条关系重复长文本。
+ */
+export interface AtlasScopeMigrationSummary {
+  fromSchemaVersion: string;
+  relations: number;
+  repositoryScopes: {
+    intraRepository: number;
+    crossRepository: number;
+  };
+  runtimeScopes: {
+    intraRuntime: number;
+    crossRuntime: number;
+    unknown: number;
+  };
+  /** 旧 scope 原值计数；'none' 表示旧数据没有该字段。 */
+  legacyScopes: Record<string, number>;
+  /** 旧 runtimeVerified=true 因缺少带类型证据而被降级的数量。 */
+  runtimeVerifiedDowngraded: number;
+  notes: string[];
+}
+
 export interface AtlasDataset {
   schemaId: typeof ATLAS_SCHEMA_ID;
   schemaVersion: string;
   /** 从旧版 Schema 迁移时记录原版本，便于审计。 */
   schemaMigratedFrom?: string;
+  /** 1.4 关系作用域迁移汇总；1.4 原生数据不需要。 */
+  scopeMigration?: AtlasScopeMigrationSummary;
   /** 数据集构建/导出时间，不是源码提交时间。 */
   generatedAt: string;
   source: AtlasSourceDescriptor;
@@ -477,6 +577,8 @@ export type AtlasErrorCode =
   | 'ATLAS_DATASET_INVALID'
   | 'ATLAS_DATASET_DANGLING_RELATION'
   | 'ATLAS_DATASET_DUPLICATE_NODE'
+  | 'ATLAS_DATASET_DUPLICATE_RELATION'
+  | 'ATLAS_DATASET_MODULE_INVALID'
   | 'ATLAS_DATASET_PATH_LEAK'
   | 'ATLAS_DATASET_SNAPSHOT_INVALID'
   | 'ATLAS_DATASET_FLOW_INVALID'
@@ -530,10 +632,42 @@ export function isAiReviewed(review: AtlasReview): boolean {
   return review.method === 'ai-source-review' && review.status !== 'unverified';
 }
 
+/** AI 或独立人工复核过；Graphify 提取/推断本身不算复核。 */
+export function isReviewed(review: AtlasReview): boolean {
+  return (
+    (review.method === 'ai-source-review' || review.method === 'human-review') &&
+    review.status !== 'unverified'
+  );
+}
+
+/**
+ * 已确认关系的判定：必须经过 AI/人工复核，并保留源码、接口或运行时证据。
+ * 未审核的候选关系不得进入已确认关系图；它最多作为原始记录保留。
+ */
+export function isConfirmedRelation(relation: AtlasRelation): boolean {
+  if (!isReviewed(relation.review)) return false;
+  const hasSourceEvidence = relation.evidence !== null || relation.review.evidence.length > 0;
+  const hasInterfaceEvidence = relation.interfaceEvidence.length > 0;
+  const hasRuntimeEvidence = relation.runtimeVerified && relation.runtimeEvidence.length > 0;
+  return hasSourceEvidence || hasInterfaceEvidence || hasRuntimeEvidence;
+}
+
+/**
+ * 跨仓库关系只有在复核 + 接口/协议证据同时成立时才进入已确认图。
+ * 1.3 迁移的跨仓库关系可能没有类型化接口证据，因此保留为候选。
+ */
+export function isConfirmedCrossRepositoryRelation(relation: AtlasRelation): boolean {
+  return (
+    relation.repositoryScope === 'cross-repository' &&
+    isConfirmedRelation(relation) &&
+    relation.interfaceEvidence.length > 0
+  );
+}
+
 export const MODULE_ORDER: AtlasModuleId[] = ['data', 'voice', 'animation', 'canvas'];
 
 export function isAtlasModuleId(value: unknown): value is AtlasModuleId {
-  return value === 'data' || value === 'voice' || value === 'animation' || value === 'canvas';
+  return typeof value === 'string' && /^[a-z][a-z0-9-]{0,31}$/.test(value);
 }
 
 export function isAtlasSystemId(value: unknown): value is AtlasSystemId {

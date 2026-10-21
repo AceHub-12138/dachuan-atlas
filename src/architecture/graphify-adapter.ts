@@ -502,6 +502,14 @@ export function adaptGraphify(input: AdaptGraphifyInput): AtlasDataset {
       evidence: relationEvidence,
       selfReference,
       context,
+      // Graphify 只做静态提取：同一仓库内，但运行时边界未知；不能推断同进程。
+      repositoryScope: 'intra-repository',
+      runtimeScope: 'unknown',
+      runtimeVerified: false,
+      runtimeEvidence: [],
+      interfaceEvidence: [],
+      legacyScope: null,
+      scopeNote: 'Graphify 静态关系；仓库维度由同一 repository 确定，运行时维度未知。',
       flags: {
         deferred: asBoolean(rawLink.deferred),
         typeOnly: asBoolean(rawLink.type_only),
@@ -877,6 +885,7 @@ function buildModules(
       index: definition.index,
       name: definition.name,
       latin: definition.latin,
+      repository: repositoryId,
       system: 'nexus',
       review: definition.review,
       reviewRecord: aiReview(

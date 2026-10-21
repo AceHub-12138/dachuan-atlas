@@ -1,19 +1,21 @@
-import type {
-  AtlasDataset,
-  AtlasNode,
-  AtlasRelation,
-  AtlasRepositoryRecord,
-  AtlasRepositorySnapshotRef,
+import {
+  isConfirmedCrossRepositoryRelation,
+  type AtlasDataset,
+  type AtlasRelation,
+  type AtlasRepositoryRecord,
+  type AtlasRepositorySnapshotRef,
 } from './schema.ts';
 
 /**
  * 多仓库接入的只读辅助层（P1.3）。
  *
  * 设计原则：
- * - 一个 AtlasDataset 仍然只描述一个仓库历史快照；
+ * - 一个 AtlasDataset 仍然只描述一个主仓库历史快照；
  * - 多个仓库由多个数据集表示，通过 repository/snapshotKey 建立索引；
  * - 不把不同仓库或不同进程的节点合并成一张“运行时图”；
- * - 跨仓库关系必须是显式的 cross-repository，并带接口/协议证据。
+ * - 仓库维度（repositoryScope）与运行时维度（runtimeScope）分开统计，
+ *   因此同一关系可以同时跨仓库和跨运行时；
+ * - 未确认的跨仓库候选不进入已确认关系图。
  */
 
 export interface RepositorySnapshotSummary extends AtlasRepositorySnapshotRef {
@@ -35,6 +37,9 @@ export function repositorySummaries(dataset: AtlasDataset): RepositorySummary[] 
   for (const node of dataset.nodes) {
     nodeCounts.set(node.repository, (nodeCounts.get(node.repository) ?? 0) + 1);
   }
+  const confirmedCrossRepository = confirmedCrossRepositoryRelations(dataset);
+  const crossRuntime = crossProcessRelations(dataset);
+  const nodesById = new Map(dataset.nodes.map((node) => [node.id, node]));
   return (dataset.repositories ?? []).map((repository) => ({
     repository,
     nodeCount: nodeCounts.get(repository.id) ?? 0,
@@ -42,13 +47,11 @@ export function repositorySummaries(dataset: AtlasDataset): RepositorySummary[] 
       (sum, snapshot) => sum + snapshot.relationCount,
       0,
     ),
-    crossRepositoryRelations: crossRepositoryRelations(dataset).filter((relation) => {
-      const from = dataset.nodes.find((node) => node.id === relation.from);
-      return from?.repository === repository.id;
+    crossRepositoryRelations: confirmedCrossRepository.filter((relation) => {
+      return nodesById.get(relation.from)?.repository === repository.id;
     }).length,
-    crossProcessRelations: crossProcessRelations(dataset).filter((relation) => {
-      const from = dataset.nodes.find((node) => node.id === relation.from);
-      return from?.repository === repository.id;
+    crossProcessRelations: crossRuntime.filter((relation) => {
+      return nodesById.get(relation.from)?.repository === repository.id;
     }).length,
   }));
 }
@@ -73,17 +76,65 @@ export function crossRepositoryRelations(dataset: AtlasDataset): AtlasRelation[]
   });
 }
 
+/**
+ * 已确认的跨仓库关系：经过 AI/人工复核 + 带接口/协议证据。
+ * 旧版迁移留下的未分类跨仓库边仍保留在数据集中，但不会出现在这里。
+ */
+export function confirmedCrossRepositoryRelations(dataset: AtlasDataset): AtlasRelation[] {
+  return crossRepositoryRelations(dataset).filter(isConfirmedCrossRepositoryRelation);
+}
+
+/**
+ * 跨运行时关系只由 runtimeScope 决定。runtimeScope=unknown 不参与，
+ * 同仓库或跨仓库都可以是 cross-runtime。
+ */
 export function crossProcessRelations(dataset: AtlasDataset): AtlasRelation[] {
-  const nodeById = new Map(dataset.nodes.map((node) => [node.id, node]));
-  return dataset.relations.filter((relation) => {
-    if (relation.scope === 'cross-process') return true;
-    const from = nodeById.get(relation.from);
-    const to = nodeById.get(relation.to);
-    if (!from || !to) return false;
-    const known = (value: AtlasNode['runtimeBoundary']): boolean =>
-      !!value && value !== 'unknown' && value !== 'shared';
-    return known(from.runtimeBoundary) && known(to.runtimeBoundary) && from.runtimeBoundary !== to.runtimeBoundary;
-  });
+  return dataset.relations.filter((relation) => relation.runtimeScope === 'cross-runtime');
+}
+
+/** 同一仓库内但跨运行时的关系；用于证明“同 Git 仓库 ≠ 同运行时”。 */
+export function intraRepositoryCrossProcessRelations(dataset: AtlasDataset): AtlasRelation[] {
+  return crossProcessRelations(dataset).filter(
+    (relation) => relation.repositoryScope === 'intra-repository',
+  );
+}
+
+/** 同时跨仓库和跨运行时的关系；P1.4 修正后允许存在。 */
+export function crossRepositoryCrossProcessRelations(dataset: AtlasDataset): AtlasRelation[] {
+  return crossProcessRelations(dataset).filter(
+    (relation) => relation.repositoryScope === 'cross-repository',
+  );
+}
+
+export interface RelationScopeCounts {
+  total: number;
+  intraRepository: number;
+  crossRepository: number;
+  intraRuntime: number;
+  crossRuntime: number;
+  unknownRuntime: number;
+  runtimeVerified: number;
+}
+
+export function relationScopeCounts(dataset: AtlasDataset): RelationScopeCounts {
+  const counts: RelationScopeCounts = {
+    total: dataset.relations.length,
+    intraRepository: 0,
+    crossRepository: 0,
+    intraRuntime: 0,
+    crossRuntime: 0,
+    unknownRuntime: 0,
+    runtimeVerified: 0,
+  };
+  for (const relation of dataset.relations) {
+    if (relation.repositoryScope === 'cross-repository') counts.crossRepository += 1;
+    else counts.intraRepository += 1;
+    if (relation.runtimeScope === 'cross-runtime') counts.crossRuntime += 1;
+    else if (relation.runtimeScope === 'intra-runtime') counts.intraRuntime += 1;
+    else counts.unknownRuntime += 1;
+    if (relation.runtimeVerified) counts.runtimeVerified += 1;
+  }
+  return counts;
 }
 
 /**
@@ -94,6 +145,41 @@ export function snapshotIndex(dataset: AtlasDataset): Map<string, RepositorySnap
   const index = new Map<string, RepositorySnapshotSummary>();
   for (const summary of allSnapshotSummaries(dataset)) {
     index.set(summary.snapshotKey, summary);
+  }
+  return index;
+}
+
+/**
+ * 当前数据集所描述快照的稳定标识。关系 ID 只在单个快照内唯一；
+ * 多快照索引必须使用 `${snapshotKey}::${relation.id}`，不能只按 relation.id
+ * 合并，否则同一仓库的两个提交会互相覆盖。
+ */
+export function datasetSnapshotKey(dataset: AtlasDataset): string | null {
+  if (dataset.snapshot) {
+    const repository = dataset.repositories?.find(
+      (entry) => entry.id === dataset.snapshot?.repository.id,
+    );
+    const match = repository?.snapshots.find(
+      (entry) =>
+        entry.snapshotId === dataset.snapshot?.id &&
+        entry.commit === dataset.snapshot?.commit,
+    );
+    if (match) return match.snapshotKey;
+    return `${dataset.snapshot.repository.id}@${dataset.snapshot.commitShort}@${dataset.snapshot.generatedAt ?? 'unknown'}`;
+  }
+  return dataset.repositories?.[0]?.snapshots[0]?.snapshotKey ?? null;
+}
+
+export function scopedRelationId(dataset: AtlasDataset, relation: AtlasRelation): string {
+  const snapshotKey = datasetSnapshotKey(dataset);
+  return snapshotKey ? `${snapshotKey}::${relation.id}` : relation.id;
+}
+
+/** 按快照隔离的关系索引；不同快照的同名关系不会互相覆盖。 */
+export function scopedRelationIndex(dataset: AtlasDataset): Map<string, AtlasRelation> {
+  const index = new Map<string, AtlasRelation>();
+  for (const relation of dataset.relations) {
+    index.set(scopedRelationId(dataset, relation), relation);
   }
   return index;
 }

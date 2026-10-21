@@ -1,8 +1,8 @@
 {
   "name": "dachuan-atlas",
   "private": true,
-  "version": "0.5.0",
-  "description": "DACHUAN ATLAS — 大川项目架构星图 / P1.3 可信架构解释、备份迁移与多仓库准备",
+  "version": "0.6.0",
+  "description": "DACHUAN ATLAS — 大川项目架构星图 / P1.4 双维度关系作用域与迁移准备",
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1",
@@ -17,6 +17,7 @@
     "verify:build": "node tools/verify-build.mjs",
     "verify:chrome": "node tools/verify-chrome.mjs",
     "verify:p13": "node tools/verify-p13.mjs",
+    "verify:p14": "node tools/verify-p14.mjs",
     "audit:backup": "node tools/audit-backup.mjs"
   },
   "dependencies": {
