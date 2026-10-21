@@ -552,18 +552,19 @@ P0.1 没有接入 Graphify；P1.1 / P1.2 只接入用户本地导入的 Graphify
 
 ## 11. 私有版本控制与备份方案
 
-P1.2 施工前已建立 **仅本机、无远程仓库** 的私有版本控制；P1.3 / P1.4 / P2.0-A 继续沿用，没有创建 GitHub / GitLab 远程，也没有上传任何文件。
+P1.2 施工前已建立 **仅本机、无远程仓库** 的私有版本控制；P1.3 / P1.4 / P2.0-A / P2.0-A.1 继续沿用，没有创建 GitHub / GitLab 远程，也没有上传任何文件。
 
-- **本地 Git**：`git init -b main`；基线提交 `fa2c129`（P1.1），P1.2 最终提交 `330be91`，P1.3 最终提交 `4d12381`，P1.4 提交见 P1.4 报告，P2.0-A 代码提交 `7c29992`；`local-data/`、`dist/`、`node_modules/` 继续由 `.gitignore` 排除。
+- **本地 Git**：`git init -b main`；基线提交 `fa2c129`（P1.1），P1.2 最终提交 `330be91`，P1.3 最终提交 `4d12381`，P1.4 提交见 P1.4 报告，P2.0-A 代码提交 `7c29992`，P2.0-A.1 bundle 提交 `7f0856a`；`local-data/`、`dist/`、`node_modules/` 继续由 `.gitignore` 排除。
 - **P1.1 基线 bundle**：`atlas-p11-20261021-071831.bundle`（约 54 MB，不含 `local-data`）。
 - **P1.2 最终 bundle**：`atlas-p12-final-20261021.bundle`（源码、文档、13 张截图与录屏；不含 `local-data`）。
 - **P1.3 最终 bundle**：`atlas-p13-final-20261021.bundle`（源码、文档、P1.3 截图、测试与验收记录；不含 `local-data`）。
 - **P1.3 复核**：P1.4 已重新校验 P1.3 最终 bundle 的 SHA-256、提交 `4d12381`、独立恢复、构建与真实数据导入；结果见 `docs/architecture/p1.4-p13-final-bundle-verification.json`。
 - **P1.4 最终 bundle**：`p14-final-20261021/atlas-p14-final-20261021.bundle`，与 P1.3 备份使用独立目录与文件名，不覆盖旧备份。
 - **P2.0-A 最终 bundle**：`p20a-final-20261021/atlas-p20a-final-20261021.bundle`（SHA-256 `8bb87194…`，提交 `7c29992`），使用新目录与新文件名，不覆盖 P1.3 / P1.4。
-- **快照副本**：`local-data-p20a-final-20261021/` 与 P1.4 副本逐文件哈希一致；保留原始 Schema 1.3.0 快照、模块协作场景与模块解释。P1.1 / P1.2 / P1.3 / P1.4 副本继续保留。
-- **校验**：`SHA256-p20a-final-20261021.txt` 记录 P2.0-A bundle、快照、流程、解释与报告文件的 SHA-256。
-- **恢复审计**：`node tools/audit-backup.mjs` 在本机隔离目录执行 bundle 克隆、`npm ci`、测试、构建、构建门禁与浏览器重新导入；P2.0-A 结果见 [p2.0a-final-bundle-audit.json](docs/architecture/p2.0a-final-bundle-audit.json) 与 [P2.0A-BACKUP-REPORT.md](docs/P2.0A-BACKUP-REPORT.md)；P1.4 结果见 [p1.4-final-bundle-audit.json](docs/architecture/p1.4-final-bundle-audit.json)。
+- **P2.0-A.1 最终 bundle**：`p20a1-final-20261021/atlas-p20a1-final-20261021.bundle`（SHA-256 `76e1cd7b…`，提交 `7f0856a`），使用新目录与新文件名，不覆盖 P1.3 / P1.4 / P2.0-A。
+- **快照副本**：`local-data-p20a1-final-20261021/` 与 P2.0-A / P1.4 副本逐文件哈希一致；保留原始 Schema 1.3.0 快照、模块协作场景与模块解释。P1.1 / P1.2 / P1.3 / P1.4 / P2.0-A 副本继续保留。
+- **校验**：`SHA256-p20a1-final-20261021.txt` 记录 P2.0-A.1 bundle、快照、流程、解释与报告文件的 SHA-256。
+- **恢复审计**：`node tools/audit-backup.mjs` 在本机隔离目录执行 bundle 克隆、`npm ci`、测试、构建、构建门禁与浏览器重新导入；P2.0-A.1 结果见 [p2.0a1-final-bundle-audit.json](docs/architecture/p2.0a1-final-bundle-audit.json) 与 [P2.0A.1-BACKUP-REPORT.md](docs/P2.0A.1-BACKUP-REPORT.md)；P2.0-A 结果见 [p2.0a-final-bundle-audit.json](docs/architecture/p2.0a-final-bundle-audit.json)，P1.4 结果见 [p1.4-final-bundle-audit.json](docs/architecture/p1.4-final-bundle-audit.json)。
 - **当前限制**：**仅本机备份，尚未完成异机备份**；Windows 实机恢复未执行。完成 `docs/P1.4-MAC-TO-WINDOWS.md` 第 6 节才算异机恢复验证。
 - **建议的后续做法**：
   1. 继续使用本地 Git，按轮次提交；不要添加公开远程。
