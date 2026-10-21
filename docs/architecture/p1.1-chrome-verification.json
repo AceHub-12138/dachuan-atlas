@@ -1,0 +1,227 @@
+{
+  "chrome": "Google Chrome 155.0.8059.85 (headless, independent)",
+  "note": "Headless Chrome FPS is throttled; use it for functional verification, not performance baselines.",
+  "imported": {
+    "badge": "本地快照 · 2584284",
+    "summary": "NEXUS 本地历史快照 · 2584284",
+    "detail": "本地导入 · 提交 2584284 · 生成 2026-10-20 · Graphify 0.9.92",
+    "counts": [
+      "1,390",
+      "3,170",
+      "3,097",
+      "13",
+      "0",
+      "3,116",
+      "41",
+      "33"
+    ],
+    "reviewLabel": [
+      "AI 源码复核",
+      "独立人工审核",
+      "Graphify 直接提取 · 待核实",
+      "Graphify 推断 · 待核实"
+    ],
+    "privacy": "隐私体检：通过绝对路径 0 · 凭据字段 0 · 内部符号 1341",
+    "containsHumanClaim": false,
+    "containsAiReview": true
+  },
+  "moduleShots": [
+    {
+      "name": "经营数据展示",
+      "summary": {
+        "title": "经营数据展示",
+        "what": "把 CRM 经营数据整理成合同、回款、发货与业务覆盖四类现场视图。",
+        "components": [
+          "公开大屏数据投影",
+          "经营指标栏",
+          "合同额仪表",
+          "经营指标读数",
+          "回款表盘"
+        ],
+        "composition": "AI 源码复核 · 已核实",
+        "reviewCounts": "AI 复核 4人工 0待核实 318",
+        "gaps": [
+          "Graphify 没有覆盖指标计算与数据刷新之间的运行时链路。",
+          "地图使用 SVG 绘制，不属于 Canvas 模块。",
+          "关系默认待核实，不能据此证明生产环境的数据流方向。",
+          "数据展示模块与语音模块之间存在跨模块关系；Graphify 能看到 import/call，但不能证明生产环境的数据流方向。",
+          "本模块的“已核实”只表示模块组成已核对，不表示每条关系都已人工审核。",
+          "模块组成由 AI 按源码路径复核；内部关系仍逐条保留审核状态。"
+        ],
+        "hasEvidence": true
+      },
+      "file": "docs/screenshots/P1.1-02-module-1-1920x1080.png"
+    },
+    {
+      "name": "语音交互",
+      "summary": {
+        "title": "语音交互",
+        "what": "让用户可以用语音提问，并把答案以语音和屏幕卡片返回。",
+        "components": [
+          "浏览器麦克风",
+          "PCM 播放器",
+          "语音协议解析",
+          "语音会话状态机",
+          "协议到状态机映射"
+        ],
+        "composition": "AI 源码复核 · 已核实",
+        "reviewCounts": "AI 复核 4人工 0待核实 1186",
+        "gaps": [
+          "浏览器与服务端之间的跨进程运行时链路没有图边，仍待核实。",
+          "浏览器音频 API、React 回调与 Canvas 覆盖层的调用关系不完整。",
+          "13 条 AI 复核关系之外，模块内部关系仍待核实。",
+          "语音模块横跨 43 个 Graphify Community；Community 编号没有参与归类。",
+          "Community 31 只包含 17 个编排服务节点，不能代表整个语音模块。",
+          "浏览器端与服务端通过 VoiceWireEvent 协议连接；Graphify 没有生成跨进程的运行时边，相关关系仍需人工核实。",
+          "模块组成由 AI 按源码路径复核；内部关系仍逐条保留审核状态。"
+        ],
+        "hasEvidence": true
+      },
+      "file": "docs/screenshots/P1.1-03-module-2-1920x1080.png"
+    },
+    {
+      "name": "动画调度",
+      "summary": {
+        "title": "动画调度",
+        "what": "用一个统一的帧调度器控制大屏的入场、脉冲、航线与降级节奏。",
+        "components": [
+          "动画调度器",
+          "GSAP 代理场景",
+          "动画运行时提供者",
+          "大屏场景动效",
+          "减少动态偏好"
+        ],
+        "composition": "AI 源码复核 · 已核实",
+        "reviewCounts": "AI 复核 3人工 0待核实 129",
+        "gaps": [
+          "requestAnimationFrame 与 cancelAnimationFrame 未被 Graphify 建边。",
+          "GsapTickerOwner 不在本历史快照中，不能从当前工作区补入。",
+          "动画与经营数据、语音模块的运行时联动仍待核实。",
+          "MotionDirector 的源码注释明确写出“一个所有者、一个未完成的 rAF”，这是动画调度的核心证据。",
+          "Graphify 没有把 requestAnimationFrame、cancelAnimationFrame 建成节点或边；动画调度的运行时调用图不完整。",
+          "GsapTickerOwner 不存在于本历史快照，未从当前工作区补入。",
+          "模块组成由 AI 按源码路径复核；内部关系仍逐条保留审核状态。"
+        ],
+        "hasEvidence": true
+      },
+      "file": "docs/screenshots/P1.1-04-module-3-1920x1080.png"
+    },
+    {
+      "name": "Canvas 渲染",
+      "summary": {
+        "title": "Canvas 渲染",
+        "what": "分布在大屏与语音覆盖层中的 Canvas 2D 绘制能力集合，不是一个独立业务子系统。",
+        "components": [
+          "语音覆盖层 Canvas 核心",
+          "三维弱透视投影",
+          "核心粒子构建",
+          "大屏场景动效",
+          "大屏舞台"
+        ],
+        "composition": "AI 源码复核 · 部分核实",
+        "reviewCounts": "AI 复核 2人工 0待核实 84",
+        "gaps": [
+          "历史快照没有独立 Canvas 模块入口，主归属节点为 0。",
+          "Graphify 没有 getContext、fillRect 或 CanvasRenderingContext2D 节点与边。",
+          "只能证明 Canvas 绘制存在，不能证明完整调用网络。",
+          "本模块主归属节点为 0；4 个文件仅作为支撑归属，避免虚构一个不存在的独立模块。",
+          "Graphify 未生成 getContext、fillRect、CanvasRenderingContext2D 等节点，Canvas 调用关系不完整。",
+          "因此标记为“部分核实”：源码能证明 Canvas 绘制存在，但无法证明完整的调用网络。",
+          "模块边界只能部分确认；未用推测补齐缺失组件。"
+        ],
+        "hasEvidence": true
+      },
+      "file": "docs/screenshots/P1.1-05-module-4-1920x1080.png"
+    }
+  ],
+  "searchNames": [
+    "浏览器麦克风"
+  ],
+  "relationInfo": {
+    "rows": 23,
+    "reviews": [
+      "直接提取 · 待核实",
+      "直接提取 · 待核实",
+      "直接提取 · 待核实",
+      "直接提取 · 待核实",
+      "直接提取 · 待核实",
+      "直接提取 · 待核实",
+      "直接提取 · 待核实",
+      "直接提取 · 待核实",
+      "直接提取 · 待核实",
+      "直接提取 · 待核实",
+      "直接提取 · 待核实",
+      "直接提取 · 待核实",
+      "直接提取 · 待核实",
+      "直接提取 · 待核实",
+      "直接提取 · 待核实",
+      "直接提取 · 待核实",
+      "直接提取 · 待核实",
+      "直接提取 · 待核实",
+      "直接提取 · 待核实",
+      "直接提取 · 待核实",
+      "直接提取 · 待核实",
+      "直接提取 · 待核实",
+      "直接提取 · 待核实"
+    ],
+    "evidence": [
+      "src/lib/voice/microphone.ts#L58",
+      "src/lib/voice/microphone.ts#L62",
+      "src/lib/voice/microphone.ts#L234",
+      "src/lib/voice/microphone.ts#L75",
+      "src/lib/voice/microphone.ts#L19"
+    ],
+    "warning": "只显示数据集中确有证据的关系；未显示不代表不存在。画布中的模块连线仍为演示构图。"
+  },
+  "aiFilter": {
+    "selected": [
+      "all",
+      "ai",
+      "all",
+      "all"
+    ],
+    "rows": 4,
+    "reviews": [
+      "AI 源码复核",
+      "AI 源码复核",
+      "AI 源码复核",
+      "AI 源码复核"
+    ],
+    "empty": null
+  },
+  "export": {
+    "file": "nexus-2584284-2026-10-20.atlas.json",
+    "nodes": 1390,
+    "relations": 3170,
+    "schemaVersion": "1.1.0"
+  },
+  "reimported": {
+    "notice": "已导入 nexus-2584284-2026-10-20.atlas.json（本地文件，未上传）：1390 节点 / 3170 关系。",
+    "summary": "NEXUS 本地历史快照 · 2584284",
+    "counts": [
+      "1,390",
+      "3,170",
+      "3,097",
+      "13",
+      "0",
+      "3,116",
+      "41",
+      "33"
+    ],
+    "review": "AI 源码复核13独立人工审核0Graphify 直接提取 · 待核实3,116Graphify 推断 · 待核实41"
+  },
+  "metrics": {
+    "fps": 15.2,
+    "frameMs": 0.81,
+    "p95FrameMs": 1.1,
+    "width": 1920,
+    "height": 1080,
+    "dpr": 1,
+    "motion": "full",
+    "stars": 387,
+    "rafActive": true,
+    "focused": true
+  },
+  "atlasNetworkRequests": [],
+  "consoleErrors": []
+}

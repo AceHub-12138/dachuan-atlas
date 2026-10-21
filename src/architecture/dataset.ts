@@ -1,0 +1,613 @@
+import {
+  ATLAS_SCHEMA_ID,
+  ATLAS_SCHEMA_MAJOR,
+  ATLAS_SCHEMA_MINOR,
+  ATLAS_SCHEMA_VERSION,
+  AtlasDataError,
+  isAtlasModuleId,
+  isAtlasSystemId,
+  MODULE_ORDER,
+  type AtlasDataset,
+  type AtlasEvidenceRef,
+  type AtlasModuleComponent,
+  type AtlasModuleId,
+  type AtlasModuleRecord,
+  type AtlasNode,
+  type AtlasRelation,
+  type AtlasReview,
+  type AtlasReviewMethod,
+  type AtlasReviewStatus,
+  type AtlasSourceKind,
+} from './schema.ts';
+import { normalizeRelativePath } from './paths.ts';
+
+/**
+ * ATLAS 标准数据的导入 / 导出 / 交叉校验。
+ *
+ * 与 Graphify 适配器不同，这里对标准数据是严格的：它已经是 ATLAS 自己的
+ * 格式，出现悬空关系、重复节点或绝对路径说明文件损坏或被手工改坏，应
+ * 直接给出可读错误，而不是猜测修复。
+ */
+
+const REVIEW_VALUES: AtlasReviewStatus[] = ['verified', 'partially_verified', 'unverified'];
+const REVIEW_METHODS: AtlasReviewMethod[] = [
+  'graphify-extracted',
+  'graphify-inferred',
+  'ai-source-review',
+  'human-review',
+  'unverified',
+];
+const SOURCE_KINDS: AtlasSourceKind[] = ['demo', 'graphify'];
+const SYSTEM_ORDER = ['nexus', 'crm', 'electron'];
+const LEGACY_AI_REVIEWER = 'P1.0 人工核对';
+const AI_ACTOR = 'ZCode + DeepSeek（P1.0 施工 Agent）';
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function requireString(value: unknown, field: string): string {
+  if (typeof value !== 'string' || !value.trim()) {
+    throw new AtlasDataError('ATLAS_DATASET_INVALID', `字段 ${field} 必须是非空字符串。`);
+  }
+  return value;
+}
+
+function requireArray(value: unknown, field: string): unknown[] {
+  if (!Array.isArray(value)) {
+    throw new AtlasDataError('ATLAS_DATASET_INVALID', `字段 ${field} 必须是数组。`);
+  }
+  return value;
+}
+
+function parseMajor(version: string): number {
+  const match = version.match(/^(\d+)\./);
+  return match ? Number.parseInt(match[1], 10) : Number.NaN;
+}
+
+function parseMinor(version: string): number {
+  const match = version.match(/^\d+\.(\d+)\./);
+  return match ? Number.parseInt(match[1], 10) : Number.NaN;
+}
+
+function validateReview(raw: unknown, field: string): AtlasReview {
+  if (!isRecord(raw)) {
+    throw new AtlasDataError('ATLAS_DATASET_INVALID', `${field} 必须是对象。`);
+  }
+  const review = raw as unknown as AtlasReview;
+  if (!REVIEW_VALUES.includes(review.status)) {
+    throw new AtlasDataError('ATLAS_DATASET_INVALID', `${field}.status 状态非法。`);
+  }
+  if (!REVIEW_METHODS.includes(review.method)) {
+    throw new AtlasDataError('ATLAS_DATASET_INVALID', `${field}.method 审核方式非法。`);
+  }
+  if (review.actor !== null && typeof review.actor !== 'string') {
+    throw new AtlasDataError('ATLAS_DATASET_INVALID', `${field}.actor 必须是字符串或 null。`);
+  }
+  if (!Array.isArray(review.evidence)) {
+    throw new AtlasDataError('ATLAS_DATASET_INVALID', `${field}.evidence 必须是数组。`);
+  }
+  for (const [index, evidence] of review.evidence.entries()) {
+    if (!isRecord(evidence)) {
+      throw new AtlasDataError('ATLAS_DATASET_INVALID', `${field}.evidence[${index}] 结构非法。`);
+    }
+    requireString(evidence.file, `${field}.evidence[${index}].file`);
+    validateRelativeFile(evidence.file, `${field}.evidence[${index}].file`);
+  }
+  return review;
+}
+
+function migrateReview(raw: unknown, fallbackMethod: AtlasReviewMethod): AtlasReview {
+  if (!isRecord(raw)) {
+    return {
+      status: 'unverified',
+      method: fallbackMethod,
+      actor: null,
+      reviewer: null,
+      reviewedAt: null,
+      note: '旧版数据缺少审核记录。',
+      evidence: [],
+    };
+  }
+  const legacyStatus = REVIEW_VALUES.includes(raw.status as AtlasReviewStatus)
+    ? (raw.status as AtlasReviewStatus)
+    : 'unverified';
+  let status = legacyStatus;
+  let method = REVIEW_METHODS.includes(raw.method as AtlasReviewMethod)
+    ? (raw.method as AtlasReviewMethod)
+    : fallbackMethod;
+  let note = typeof raw.note === 'string' ? raw.note : null;
+  let actorOverride: string | null = null;
+
+  if (!REVIEW_METHODS.includes(raw.method as AtlasReviewMethod) && legacyStatus === 'verified') {
+    if (raw.reviewer === LEGACY_AI_REVIEWER) {
+      method = 'ai-source-review';
+      actorOverride = AI_ACTOR;
+      note = note ? `${note}（P1.0 实际为 Agent 源码复核，P1.1 修正审核来源）` : 'P1.0 实际为 Agent 源码复核，P1.1 修正审核来源。';
+    } else {
+      // 旧版没有记录审核方式；不能把它当作独立人工审核。
+      status = 'unverified';
+      method = 'unverified';
+      note = note ? `${note}（旧版未记录审核来源，已降级为待核实）` : '旧版未记录审核来源，已降级为待核实。';
+    }
+  }
+
+  const actor =
+    actorOverride ??
+    (typeof raw.actor === 'string'
+      ? raw.actor
+      : typeof raw.reviewer === 'string'
+        ? raw.reviewer
+        : method === 'ai-source-review'
+          ? AI_ACTOR
+          : method.startsWith('graphify-')
+            ? 'Graphify'
+            : null);
+
+  return {
+    status,
+    method,
+    actor,
+    reviewer: typeof raw.reviewer === 'string' ? raw.reviewer : actor,
+    reviewedAt: typeof raw.reviewedAt === 'string' ? raw.reviewedAt : null,
+    note,
+    evidence: Array.isArray(raw.evidence) ? (raw.evidence as AtlasEvidenceRef[]) : [],
+  };
+}
+
+function reviewCountsFor(relations: AtlasRelation[]) {
+  const counts = {
+    aiReviewed: relations.filter(
+      (relation) => relation.review.method === 'ai-source-review' && relation.review.status !== 'unverified',
+    ).length,
+    humanReviewed: relations.filter(
+      (relation) => relation.review.method === 'human-review' && relation.review.status !== 'unverified',
+    ).length,
+    graphifyExtractedUnverified: relations.filter(
+      (relation) => relation.review.method === 'graphify-extracted' && relation.review.status === 'unverified',
+    ).length,
+    graphifyInferredUnverified: relations.filter(
+      (relation) => relation.review.method === 'graphify-inferred' && relation.review.status === 'unverified',
+    ).length,
+    unverified: 0,
+  };
+  counts.unverified =
+    relations.length -
+    counts.aiReviewed -
+    counts.humanReviewed -
+    counts.graphifyExtractedUnverified -
+    counts.graphifyInferredUnverified;
+  return counts;
+}
+
+function deriveKeyComponents(nodes: AtlasNode[], moduleId: AtlasModuleId): AtlasModuleComponent[] {
+  return nodes
+    .filter(
+      (node) =>
+        node.moduleId === moduleId &&
+        node.scope === 'product' &&
+        node.displayName !== null &&
+        node.responsibility !== null &&
+        node.sourceFile !== null,
+    )
+    .sort((a, b) => (a.displayName ?? '').localeCompare(b.displayName ?? '', 'zh-CN'))
+    .slice(0, 5)
+    .map((node) => ({
+      symbol: node.symbol,
+      file: node.sourceFile as string,
+      line: node.sourceLine,
+      name: node.displayName as string,
+      responsibility: node.responsibility as string,
+      review: node.review,
+    }));
+}
+
+function migrateDatasetV1(raw: Record<string, unknown>): Record<string, unknown> {
+  const sourceNodes = Array.isArray(raw.nodes) ? (raw.nodes as Record<string, unknown>[]) : [];
+  const nodes = sourceNodes.map((node) => {
+    const evidenceType = node.sourceConfidence === 'INFERRED' ? 'graphify-inferred' : 'graphify-extracted';
+    return { ...node, review: migrateReview(node.review, evidenceType) };
+  });
+  const migratedNodes = nodes as unknown as AtlasNode[];
+
+  const relations = (Array.isArray(raw.relations) ? (raw.relations as Record<string, unknown>[]) : []).map(
+    (relation) => {
+      const evidenceType =
+        relation.evidenceType === 'INFERRED'
+          ? 'graphify-inferred'
+          : relation.evidenceType === 'EXTRACTED'
+            ? 'graphify-extracted'
+            : 'unverified';
+      return { ...relation, review: migrateReview(relation.review, evidenceType) };
+    },
+  );
+
+  const modules = (Array.isArray(raw.modules) ? (raw.modules as Record<string, unknown>[]) : []).map(
+    (module) => {
+      const moduleId = module.id as AtlasModuleId;
+      const legacyStatus = REVIEW_VALUES.includes(module.review as AtlasReviewStatus)
+        ? (module.review as AtlasReviewStatus)
+        : 'unverified';
+      const reviewRecord = isRecord(module.reviewRecord)
+        ? migrateReview(module.reviewRecord, 'ai-source-review')
+        : migrateReview(
+            {
+              status: legacyStatus,
+              method: legacyStatus === 'unverified' ? 'unverified' : 'ai-source-review',
+              reviewer: legacyStatus === 'unverified' ? null : AI_ACTOR,
+              note: 'P1.0 模块组成由施工 Agent 按路径核对，P1.1 修正审核来源。',
+            },
+            'ai-source-review',
+          );
+      return {
+        ...module,
+        summary: typeof module.summary === 'string' ? module.summary : (module.description as string) ?? '',
+        responsibilities: Array.isArray(module.responsibilities)
+          ? module.responsibilities
+          : [module.description],
+        gaps: Array.isArray(module.gaps) ? module.gaps : Array.isArray(module.notes) ? module.notes : [],
+        keyComponents: Array.isArray(module.keyComponents)
+          ? module.keyComponents
+          : deriveKeyComponents(migratedNodes, moduleId),
+        reviewRecord,
+      };
+    },
+  );
+
+  const migratedRelations = relations as unknown as AtlasRelation[];
+  const reviewCounts = {
+    aiReviewed: migratedRelations.filter(
+      (relation) => relation.review.method === 'ai-source-review' && relation.review.status !== 'unverified',
+    ).length,
+    humanReviewed: migratedRelations.filter(
+      (relation) => relation.review.method === 'human-review' && relation.review.status !== 'unverified',
+    ).length,
+    graphifyExtractedUnverified: migratedRelations.filter(
+      (relation) => relation.review.method === 'graphify-extracted' && relation.review.status === 'unverified',
+    ).length,
+    graphifyInferredUnverified: migratedRelations.filter(
+      (relation) => relation.review.method === 'graphify-inferred' && relation.review.status === 'unverified',
+    ).length,
+    unverified: 0,
+  };
+  reviewCounts.unverified =
+    migratedRelations.length -
+    reviewCounts.aiReviewed -
+    reviewCounts.humanReviewed -
+    reviewCounts.graphifyExtractedUnverified -
+    reviewCounts.graphifyInferredUnverified;
+  const diagnostics = isRecord(raw.diagnostics)
+    ? {
+        ...raw.diagnostics,
+        reviewCounts: isRecord(raw.diagnostics.reviewCounts) ? raw.diagnostics.reviewCounts : reviewCounts,
+      }
+    : raw.diagnostics;
+
+  const snapshot = isRecord(raw.snapshot)
+    ? {
+        ...raw.snapshot,
+        notes: [
+          ...(Array.isArray(raw.snapshot.notes) ? raw.snapshot.notes : []),
+          '数据集由 ATLAS Schema 1.0.0 迁移到 1.1.0；原始快照字段未改写。',
+        ],
+      }
+    : raw.snapshot;
+
+  return {
+    ...raw,
+    schemaVersion: ATLAS_SCHEMA_VERSION,
+    schemaMigratedFrom: typeof raw.schemaVersion === 'string' ? raw.schemaVersion : '1.0.0',
+    nodes,
+    relations,
+    modules,
+    diagnostics,
+    snapshot,
+  };
+}
+
+function validateRelativeFile(value: string, field: string): void {
+  const normalized = normalizeRelativePath(value);
+  if (!normalized.ok) {
+    throw new AtlasDataError(
+      'ATLAS_DATASET_PATH_LEAK',
+      `字段 ${field} 不是仓库相对路径（${normalized.reason}）；标准数据禁止写入绝对路径。`,
+    );
+  }
+}
+
+function validateNode(raw: unknown, index: number): AtlasNode {
+  if (!isRecord(raw)) {
+    throw new AtlasDataError('ATLAS_DATASET_INVALID', `nodes[${index}] 必须是对象。`);
+  }
+  const node = raw as unknown as AtlasNode;
+  requireString(node.id, `nodes[${index}].id`);
+  requireString(node.symbol, `nodes[${index}].symbol`);
+  if (!isAtlasModuleId(node.moduleId) && node.moduleId !== null) {
+    throw new AtlasDataError('ATLAS_DATASET_INVALID', `nodes[${index}].moduleId 不是合法模块。`);
+  }
+  if (!Array.isArray(node.moduleIds) || node.moduleIds.some((id) => !isAtlasModuleId(id))) {
+    throw new AtlasDataError('ATLAS_DATASET_INVALID', `nodes[${index}].moduleIds 含非法模块。`);
+  }
+  if (node.sourceFile !== null) {
+    requireString(node.sourceFile, `nodes[${index}].sourceFile`);
+    validateRelativeFile(node.sourceFile, `nodes[${index}].sourceFile`);
+  }
+  if (!isRecord(node.review) || !REVIEW_VALUES.includes(node.review.status)) {
+    throw new AtlasDataError('ATLAS_DATASET_INVALID', `nodes[${index}].review 状态非法。`);
+  }
+  validateReview(node.review, `nodes[${index}].review`);
+  if (!Array.isArray(node.evidence)) {
+    throw new AtlasDataError('ATLAS_DATASET_INVALID', `nodes[${index}].evidence 必须是数组。`);
+  }
+  for (const [evidenceIndex, evidence] of node.evidence.entries()) {
+    if (!isRecord(evidence)) {
+      throw new AtlasDataError('ATLAS_DATASET_INVALID', `nodes[${index}].evidence[${evidenceIndex}] 结构非法。`);
+    }
+    requireString(evidence.file, `nodes[${index}].evidence[${evidenceIndex}].file`);
+    validateRelativeFile(evidence.file, `nodes[${index}].evidence[${evidenceIndex}].file`);
+  }
+  return node;
+}
+
+function validateRelation(raw: unknown, index: number, nodeIds: Set<string>): AtlasRelation {
+  if (!isRecord(raw)) {
+    throw new AtlasDataError('ATLAS_DATASET_INVALID', `relations[${index}] 必须是对象。`);
+  }
+  const relation = raw as unknown as AtlasRelation;
+  requireString(relation.id, `relations[${index}].id`);
+  requireString(relation.from, `relations[${index}].from`);
+  requireString(relation.to, `relations[${index}].to`);
+  if (!nodeIds.has(relation.from) || !nodeIds.has(relation.to)) {
+    throw new AtlasDataError(
+      'ATLAS_DATASET_DANGLING_RELATION',
+      `relations[${index}] 指向不存在的节点：${relation.from} -> ${relation.to}。`,
+    );
+  }
+  if (!isRecord(relation.review) || !REVIEW_VALUES.includes(relation.review.status)) {
+    throw new AtlasDataError('ATLAS_DATASET_INVALID', `relations[${index}].review 状态非法。`);
+  }
+  validateReview(relation.review, `relations[${index}].review`);
+  if (relation.evidence !== null) {
+    if (!isRecord(relation.evidence)) {
+      throw new AtlasDataError('ATLAS_DATASET_INVALID', `relations[${index}].evidence 结构非法。`);
+    }
+    requireString(relation.evidence.file, `relations[${index}].evidence.file`);
+    validateRelativeFile(relation.evidence.file, `relations[${index}].evidence.file`);
+  }
+  return relation;
+}
+
+function validateModule(raw: unknown, index: number): AtlasModuleRecord {
+  if (!isRecord(raw)) {
+    throw new AtlasDataError('ATLAS_DATASET_INVALID', `modules[${index}] 必须是对象。`);
+  }
+  const module = raw as unknown as AtlasModuleRecord;
+  if (!isAtlasModuleId(module.id)) {
+    throw new AtlasDataError('ATLAS_DATASET_INVALID', `modules[${index}].id 不是合法模块。`);
+  }
+  requireString(module.name, `modules[${index}].name`);
+  if (!REVIEW_VALUES.includes(module.review)) {
+    throw new AtlasDataError('ATLAS_DATASET_INVALID', `modules[${index}].review 状态非法。`);
+  }
+  validateReview(module.reviewRecord, `modules[${index}].reviewRecord`);
+  requireString(module.summary, `modules[${index}].summary`);
+  if (!Array.isArray(module.responsibilities) || !Array.isArray(module.gaps)) {
+    throw new AtlasDataError('ATLAS_DATASET_INVALID', `modules[${index}] 缺少 responsibilities 或 gaps。`);
+  }
+  if (!Array.isArray(module.keyComponents)) {
+    throw new AtlasDataError('ATLAS_DATASET_INVALID', `modules[${index}].keyComponents 必须是数组。`);
+  }
+  for (const [componentIndex, component] of module.keyComponents.entries()) {
+    requireString(component.symbol, `modules[${index}].keyComponents[${componentIndex}].symbol`);
+    requireString(component.name, `modules[${index}].keyComponents[${componentIndex}].name`);
+    requireString(component.file, `modules[${index}].keyComponents[${componentIndex}].file`);
+    validateRelativeFile(component.file, `modules[${index}].keyComponents[${componentIndex}].file`);
+    validateReview(component.review, `modules[${index}].keyComponents[${componentIndex}].review`);
+  }
+  if (!isRecord(module.stats) || !Array.isArray(module.evidence)) {
+    throw new AtlasDataError('ATLAS_DATASET_INVALID', `modules[${index}] 缺少 stats 或 evidence。`);
+  }
+  return module;
+}
+
+function validateSnapshot(raw: AtlasDataset): void {
+  if (raw.source.kind === 'demo') {
+    if (raw.snapshot !== null) {
+      throw new AtlasDataError('ATLAS_DATASET_SNAPSHOT_INVALID', '演示数据不应包含真实快照。');
+    }
+    return;
+  }
+  if (!isRecord(raw.snapshot)) {
+    throw new AtlasDataError('ATLAS_DATASET_SNAPSHOT_INVALID', 'Graphify 数据必须包含 snapshot。');
+  }
+  const snapshot = raw.snapshot;
+  if (snapshot.history !== true) {
+    throw new AtlasDataError('ATLAS_DATASET_SNAPSHOT_INVALID', '历史快照必须标记 history=true。');
+  }
+  requireString(snapshot.commit, 'snapshot.commit');
+  requireString(snapshot.graphifyVersion, 'snapshot.graphifyVersion');
+  if (typeof snapshot.graphifySchemaVersion !== 'number') {
+    throw new AtlasDataError('ATLAS_DATASET_SNAPSHOT_INVALID', 'snapshot.graphifySchemaVersion 必须是数字。');
+  }
+  if (!isRecord(snapshot.stats)) {
+    throw new AtlasDataError('ATLAS_DATASET_SNAPSHOT_INVALID', 'snapshot.stats 缺失。');
+  }
+}
+
+function canonicalize(dataset: AtlasDataset): AtlasDataset {
+  const systemRank = new Map(SYSTEM_ORDER.map((id, index) => [id, index]));
+  const moduleRank = new Map(MODULE_ORDER.map((id, index) => [id, index]));
+  return {
+    ...dataset,
+    systems: [...dataset.systems].sort(
+      (a, b) => (systemRank.get(a.id) ?? 99) - (systemRank.get(b.id) ?? 99),
+    ),
+    modules: [...dataset.modules].sort(
+      (a, b) => (moduleRank.get(a.id) ?? 99) - (moduleRank.get(b.id) ?? 99),
+    ),
+    nodes: [...dataset.nodes].sort((a, b) => a.id.localeCompare(b.id, 'en')),
+    relations: [...dataset.relations].sort((a, b) => a.id.localeCompare(b.id, 'en')),
+  };
+}
+
+export function parseAtlasDataset(rawInput: unknown): AtlasDataset {
+  if (!isRecord(rawInput)) {
+    throw new AtlasDataError('ATLAS_NOT_OBJECT', 'ATLAS 数据必须是 JSON 对象。');
+  }
+  if (rawInput.schemaId !== ATLAS_SCHEMA_ID) {
+    throw new AtlasDataError(
+      'ATLAS_SCHEMA_ID_UNSUPPORTED',
+      `不是 ATLAS 标准数据（schemaId=${String(rawInput.schemaId ?? '缺失')}）。`,
+    );
+  }
+  const version = requireString(rawInput.schemaVersion, 'schemaVersion');
+  const major = parseMajor(version);
+  const minor = parseMinor(version);
+  if (major !== ATLAS_SCHEMA_MAJOR || !Number.isFinite(minor) || minor > ATLAS_SCHEMA_MINOR) {
+    throw new AtlasDataError(
+      'ATLAS_SCHEMA_VERSION_UNSUPPORTED',
+      `ATLAS Schema ${version} 与当前版本 ${ATLAS_SCHEMA_VERSION} 不兼容（支持 1.0.x – 1.1.x）。`,
+    );
+  }
+  const raw = minor < 1 ? migrateDatasetV1(rawInput) : rawInput;
+  if (!isRecord(raw.source) || !SOURCE_KINDS.includes(raw.source.kind as AtlasSourceKind)) {
+    throw new AtlasDataError('ATLAS_DATASET_INVALID', 'source.kind 必须是 demo 或 graphify。');
+  }
+  if (!Array.isArray(raw.systems) || !Array.isArray(raw.modules)) {
+    throw new AtlasDataError('ATLAS_DATASET_INVALID', 'systems / modules 必须是数组。');
+  }
+  for (const [index, system] of raw.systems.entries()) {
+    if (!isRecord(system) || !isAtlasSystemId(system.id)) {
+      throw new AtlasDataError('ATLAS_DATASET_INVALID', `systems[${index}] 不是合法系统。`);
+    }
+  }
+
+  const rawNodes = requireArray(raw.nodes, 'nodes');
+  const rawRelations = requireArray(raw.relations, 'relations');
+  const nodes = rawNodes.map((node, index) => validateNode(node, index));
+  const nodeIds = new Set<string>();
+  for (const [index, node] of nodes.entries()) {
+    if (nodeIds.has(node.id)) {
+      throw new AtlasDataError('ATLAS_DATASET_DUPLICATE_NODE', `nodes[${index}] 重复节点 ID：${node.id}。`);
+    }
+    nodeIds.add(node.id);
+  }
+  const relations = rawRelations.map((relation, index) => validateRelation(relation, index, nodeIds));
+  const modules = raw.modules.map((module, index) => validateModule(module, index));
+  if (!isRecord(raw.diagnostics)) {
+    throw new AtlasDataError('ATLAS_DATASET_INVALID', 'diagnostics 缺失。');
+  }
+  const diagnostics = {
+    ...raw.diagnostics,
+    reviewCounts: isRecord(raw.diagnostics.reviewCounts)
+      ? raw.diagnostics.reviewCounts
+      : reviewCountsFor(relations as AtlasRelation[]),
+  };
+  validateSnapshot(raw as unknown as AtlasDataset);
+
+  return canonicalize({
+    ...(raw as unknown as AtlasDataset),
+    nodes,
+    relations,
+    modules,
+    diagnostics: diagnostics as unknown as AtlasDataset['diagnostics'],
+  });
+}
+
+export function serializeAtlasDataset(dataset: AtlasDataset): string {
+  return JSON.stringify(canonicalize(dataset));
+}
+
+export function importAtlasDatasetText(text: string): AtlasDataset {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text) as unknown;
+  } catch {
+    throw new AtlasDataError('ATLAS_INVALID_JSON', '文件不是合法 JSON，无法导入。');
+  }
+  return parseAtlasDataset(parsed);
+}
+
+export interface ModuleHighlight {
+  id: string;
+  name: string;
+  responsibility: string;
+  locator: string;
+  review: AtlasReviewStatus;
+}
+
+export function moduleHighlights(
+  dataset: AtlasDataset,
+  moduleId: AtlasModuleId,
+  limit = 6,
+): ModuleHighlight[] {
+  return dataset.nodes
+    .filter(
+      (node) =>
+        node.scope === 'product' &&
+        node.moduleIds.includes(moduleId) &&
+        node.displayName !== null &&
+        node.responsibility !== null,
+    )
+    .sort((a, b) => {
+      const aPrimary = a.moduleId === moduleId ? 0 : 1;
+      const bPrimary = b.moduleId === moduleId ? 0 : 1;
+      if (aPrimary !== bPrimary) return aPrimary - bPrimary;
+      return (a.displayName ?? '').localeCompare(b.displayName ?? '', 'zh-CN');
+    })
+    .slice(0, limit)
+    .map((node) => ({
+      id: node.id,
+      name: node.displayName ?? node.symbol,
+      responsibility: node.responsibility ?? '',
+      locator: node.evidence[0]?.locator ?? node.sourceFile ?? 'unknown',
+      review: node.review.status,
+    }));
+}
+
+export function moduleById(dataset: AtlasDataset, moduleId: AtlasModuleId): AtlasModuleRecord | null {
+  return dataset.modules.find((module) => module.id === moduleId) ?? null;
+}
+
+export function countVerifiedRelations(dataset: AtlasDataset): number {
+  return dataset.relations.filter((relation) => relation.review.status === 'verified').length;
+}
+
+export interface CrossModulePair {
+  from: AtlasModuleId;
+  to: AtlasModuleId;
+  count: number;
+}
+
+export interface CrossModuleSummary {
+  total: number;
+  pairs: CrossModulePair[];
+}
+
+/**
+ * 按主模块去重后的跨模块关系。模块卡片里的“跨模块”是成员关系统计，
+ * Canvas 支撑文件会在多个模块重复出现；这里给出不重叠的总量。
+ */
+export function crossModuleSummary(dataset: AtlasDataset): CrossModuleSummary {
+  const nodeById = new Map(dataset.nodes.map((node) => [node.id, node]));
+  const counts = new Map<string, CrossModulePair>();
+  let total = 0;
+
+  for (const relation of dataset.relations) {
+    const from = nodeById.get(relation.from);
+    const to = nodeById.get(relation.to);
+    if (!from || !to || from.scope !== 'product' || to.scope !== 'product') continue;
+    if (!from.moduleId || !to.moduleId || from.moduleId === to.moduleId) continue;
+    const [a, b] = [from.moduleId, to.moduleId].sort();
+    const key = `${a}|${b}`;
+    const current = counts.get(key);
+    if (current) current.count += 1;
+    else counts.set(key, { from: a, to: b, count: 1 });
+    total += 1;
+  }
+
+  return {
+    total,
+    pairs: [...counts.values()].sort((a, b) => b.count - a.count),
+  };
+}

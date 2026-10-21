@@ -1,0 +1,29 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "lib": ["ES2022"],
+    "outDir": ".tools-build",
+    "rootDir": "src",
+    "rewriteRelativeImportExtensions": true,
+    "allowImportingTsExtensions": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "noEmit": false,
+    "declaration": false,
+    "sourceMap": false,
+    "isolatedModules": true,
+    "moduleDetection": "force"
+  },
+  "include": [
+    "src/architecture/schema.ts",
+    "src/architecture/paths.ts",
+    "src/architecture/module-map.ts",
+    "src/architecture/display-names.ts",
+    "src/architecture/graphify-adapter.ts",
+    "src/architecture/dataset.ts",
+    "src/architecture/privacy.ts",
+    "src/architecture/review-records.ts"
+  ]
+}

@@ -1,0 +1,171 @@
+{
+  "generatedAt": "2026-10-21T01:25:37.703Z",
+  "source": {
+    "graph": "graph.json",
+    "manifest": "snapshot-manifest.json",
+    "report": "GRAPH_REPORT.md"
+  },
+  "snapshot": {
+    "id": "nexus-2584284-2026-10-20",
+    "commit": "2584284e3e7b994d0510d9d53b2a302e3aa740bc",
+    "generatedAt": "2026-10-20",
+    "graphifyVersion": "0.9.92",
+    "graphifySchemaVersion": 1,
+    "atlasSchemaVersion": "1.1.0",
+    "importStatus": "complete"
+  },
+  "manifest": {
+    "fileCount": 204,
+    "byteCount": 1414490,
+    "verifiedFiles": 204,
+    "hashAlgorithm": "sha256"
+  },
+  "counts": {
+    "rawNodes": 1390,
+    "rawRelations": 3170,
+    "nodes": 1390,
+    "relations": 3170,
+    "productNodes": 817,
+    "testNodes": 163,
+    "toolingNodes": 361,
+    "externalNodes": 49,
+    "conceptNodes": 2,
+    "rationaleNodes": 6,
+    "modulesAssigned": 809,
+    "modulesUnassigned": 8,
+    "unresolvedCalls": 201,
+    "nodesWithUnresolvedCalls": 66
+  },
+  "relations": {
+    "raw": 3170,
+    "uniquePairs": 3097,
+    "extracted": 3128,
+    "inferred": 42,
+    "ambiguous": 0,
+    "selfReferences": 16,
+    "duplicateRelationsCollapsed": 0,
+    "danglingRelationsDropped": 0,
+    "aiReviewed": 13,
+    "humanReviewed": 0,
+    "unverified": 3157
+  },
+  "modules": [
+    {
+      "id": "data",
+      "name": "经营数据展示",
+      "review": "verified",
+      "productNodes": 211,
+      "supportingNodes": 0,
+      "productRelations": 322,
+      "crossModuleRelations": 81,
+      "extractedRelations": 321,
+      "inferredRelations": 1,
+      "ambiguousRelations": 0,
+      "verifiedRelations": 4,
+      "unverifiedRelations": 318,
+      "files": 40,
+      "communities": 23
+    },
+    {
+      "id": "voice",
+      "name": "语音交互",
+      "review": "verified",
+      "productNodes": 530,
+      "supportingNodes": 0,
+      "productRelations": 1190,
+      "crossModuleRelations": 35,
+      "extractedRelations": 1177,
+      "inferredRelations": 13,
+      "ambiguousRelations": 0,
+      "verifiedRelations": 4,
+      "unverifiedRelations": 1186,
+      "files": 56,
+      "communities": 43
+    },
+    {
+      "id": "animation",
+      "name": "动画调度",
+      "review": "verified",
+      "productNodes": 68,
+      "supportingNodes": 0,
+      "productRelations": 132,
+      "crossModuleRelations": 13,
+      "extractedRelations": 128,
+      "inferredRelations": 4,
+      "ambiguousRelations": 0,
+      "verifiedRelations": 3,
+      "unverifiedRelations": 129,
+      "files": 7,
+      "communities": 3
+    },
+    {
+      "id": "canvas",
+      "name": "Canvas 渲染",
+      "review": "partially_verified",
+      "productNodes": 0,
+      "supportingNodes": 58,
+      "productRelations": 86,
+      "crossModuleRelations": 68,
+      "extractedRelations": 86,
+      "inferredRelations": 0,
+      "ambiguousRelations": 0,
+      "verifiedRelations": 2,
+      "unverifiedRelations": 84,
+      "files": 4,
+      "communities": 0
+    }
+  ],
+  "issues": [
+    {
+      "code": "GRAPHIFY_NODE_NON_FILE_SOURCE",
+      "severity": "info",
+      "message": "1 个节点引用包名或非文件路径，按外部节点处理。",
+      "count": 1
+    },
+    {
+      "code": "GRAPHIFY_NODE_REDACTED",
+      "severity": "warning",
+      "message": "1 个外部节点标签由本机绝对路径生成，已脱敏。",
+      "count": 1
+    },
+    {
+      "code": "GRAPHIFY_SELF_REFERENCE",
+      "severity": "info",
+      "message": "16 条自调用关系已保留，属于代码递归/自引用，不是无效边。",
+      "count": 16
+    },
+    {
+      "code": "GRAPHIFY_DISPLAY_NAMES_PARTIAL",
+      "severity": "info",
+      "message": "33 个节点有中文名称与职责注释；其余保留英文符号名，未做机器翻译。",
+      "count": 33
+    },
+    {
+      "code": "GRAPHIFY_MODULE_COVERAGE",
+      "severity": "info",
+      "message": "809 个产品节点归入模块，8 个产品节点未归类（应用外壳或数据文件）。",
+      "count": 809
+    }
+  ],
+  "coverageNotes": [
+    "Graphify 快照没有 requestAnimationFrame / cancelAnimationFrame 节点；动画调度只能依据 MotionDirector 源码判断。",
+    "快照没有 getContext / fillRect / CanvasRenderingContext2D 节点或边；Canvas 调用网络不完整。",
+    "snapshot-manifest 包含 2 个 CSS 文件，但 graph.json 没有 CSS 节点；样式对布局与动效的影响未进入关系图。",
+    "动态函数调用、React 回调、运行时状态管理大多没有边；metadata.unresolved_calls 记录了部分未能落边的调用。",
+    "浏览器与 voice-orchestrator 分属两个进程，Graphify 没有生成跨进程运行时边。",
+    "Community 编号只保留为原图字段，不参与业务模块判定。",
+    "“没有边”不等于“不存在调用”；本数据集不据此断言关系不存在。"
+  ],
+  "privacy": {
+    "status": "pass",
+    "findings": [],
+    "absolutePathCount": 0,
+    "credentialFieldCount": 0,
+    "internalSymbolCount": 1341
+  },
+  "output": {
+    "file": "local-data/nexus/nexus-2026-10-20-2584284.atlas.json",
+    "bytes": 3776675,
+    "sha256": "f4c50c8687a0775ef4a051f5d41922f6f4e2384b2da366c372631804cf819e1a"
+  }
+}
