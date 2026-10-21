@@ -122,7 +122,7 @@ export default function App() {
     (moduleId?: ModuleId) => {
       if (!hasFlow) {
         setDataOpen(true);
-        showNotice('流程场景来自本地附加数据；当前快照没有可用的流程说明。');
+        showNotice('模块协作场景来自本地附加数据；当前快照没有可用的协作说明。');
         return;
       }
       const matching = moduleId
@@ -130,7 +130,7 @@ export default function App() {
         : null;
       if (moduleId && !matching) {
         setDataOpen(true);
-        showNotice('当前模块没有对应的流程场景。');
+        showNotice('当前模块没有对应的模块协作场景。');
         return;
       }
       setAboutOpen(false);

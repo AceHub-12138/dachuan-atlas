@@ -1,5 +1,5 @@
 /**
- * ATLAS 标准架构数据 Schema（P1.0，P1.2 流程场景，P1.3 语义与多仓库准备）。
+ * ATLAS 标准架构数据 Schema（P1.0，P1.2 模块协作场景，P1.3 语义与多仓库准备）。
  *
  * 这一层刻意与 Graphify 原始 JSON 解耦：Canvas 场景、详情面板和导入/导出
  * 都只读取这里的结构，不再直接消费 graph.json。
@@ -7,7 +7,7 @@
  * 版本策略：schemaVersion 使用 semver；主版本变化表示不兼容。导入时只接受
  * 同一主版本的数据，避免旧前端静默读取新结构。
  *
- * 1.2.0 增加可选的 flows（流程场景）。
+ * 1.2.0 增加可选的 flows（模块协作场景）。
  * 1.3.0 增加流程语义（概念步骤 / 静态关联 / 运行时顺序）、模块“为什么需要它”
  * 的解释、以及多仓库/运行时边界的可选元数据。所有新字段都是可选的，1.0–1.2
  * 数据导入后会补上保守默认值，不改变源码事实。
@@ -357,7 +357,7 @@ export interface AtlasSourceDescriptor {
 }
 
 /**
- * 流程场景是本地附加的“解释材料”，不是自动生成的业务流程图。
+ * 模块协作场景是本地附加的“解释材料”，不是自动生成的业务流程图。
  * 每一步都必须指向快照里真实存在的文件与符号；步骤之间的连边由
  * 数据集中的关系实时计算，缺口不会自动补全。
  *
@@ -453,7 +453,7 @@ export interface AtlasDataset {
   nodes: AtlasNode[];
   relations: AtlasRelation[];
   diagnostics: AtlasDiagnostics;
-  /** 可选流程场景；旧版数据导入后为空数组，不会自动生成。 */
+  /** 可选模块协作场景；旧版数据导入后为空数组，不会自动生成。 */
   flows: AtlasFlowScenario[];
   /** 可选仓库登记表；旧版数据会从 snapshot 推导一个仓库记录。 */
   repositories?: AtlasRepositoryRecord[];

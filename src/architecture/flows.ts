@@ -9,7 +9,7 @@ import type {
 import { EVIDENCE_ORDER, evidenceClassForRelation } from './projection.ts';
 
 /**
- * 流程场景的只读解释层。
+ * 模块协作场景的只读解释层。
  *
  * 场景本身由本地数据提供，不从关系图自动生成。这里只做两件事：
  * 1. 把每一步解析到快照中的真实节点；

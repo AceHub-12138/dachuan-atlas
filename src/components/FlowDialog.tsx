@@ -148,7 +148,7 @@ export function FlowDialog({ dataset, onClose, onOpenData }: FlowDialogProps) {
         </p>
 
         {views.length > 1 ? (
-          <div className="flow-tabs" role="tablist" aria-label="流程场景">
+          <div className="flow-tabs" role="tablist" aria-label="模块协作场景">
             {views.map((candidate) => (
               <button
                 key={candidate.scenario.id}

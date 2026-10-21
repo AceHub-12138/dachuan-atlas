@@ -49,7 +49,7 @@ HEADFUL=1 node tools/perf-p12.mjs  # 可见 Chrome；性能对照（结果另存
 node tools/audit-backup.mjs        # 隔离目录恢复、测试、构建、真实数据重新导入
 ```
 
-`npm test` 不依赖 Graphify 目录；设置 `GRAPHIFY_POC_DIR` 可额外重跑原始 `graph.json` 的一致性测试。真实快照输出到 `local-data/`（已忽略），不会进入 `public/` 或 `dist/`。`attach:flows` 只把本地流程场景附加到已有快照，不扫描源码工作区；流程文件同样位于 `local-data/`，不进入默认构建。项目运行时不请求任何第三方服务。
+`npm test` 不依赖 Graphify 目录；设置 `GRAPHIFY_POC_DIR` 可额外重跑原始 `graph.json` 的一致性测试。真实快照输出到 `local-data/`（已忽略），不会进入 `public/` 或 `dist/`。`attach:flows` 只把本地模块协作场景附加到已有快照，不扫描源码工作区；场景文件同样位于 `local-data/`，不进入默认构建。项目运行时不请求任何第三方服务。
 
 ---
 
@@ -84,7 +84,7 @@ P1.1 在 P0.1 视觉层之上完善本地数据探索。**真实 NEXUS 快照不
 | 数据来源 | 内容 | 界面标识 |
 | --- | --- | --- |
 | 演示数据 | P0.1 模拟节点 / 关系，`SIMULATED`，随前端发布 | 顶栏「演示数据」 |
-| 本地历史快照 | 用户导入的 ATLAS 1.2 数据；当前样例 1,390 节点 / 3,170 条关系 / 1 个本地流程场景 | 顶栏「本地快照 · 2584284」 |
+| 本地历史快照 | 用户导入的 ATLAS 1.3 数据；当前样例 1,390 节点 / 3,170 条关系 / 1 个模块协作场景 / 4 个模块解释 | 顶栏「本地快照 · 2584284」 |
 
 安全与审核边界：
 
@@ -349,7 +349,7 @@ P1.3 没有改 Canvas 引擎；新增中文解释与弹窗只在交互时渲染�
 | P1.1 旧 Schema 1.0 兼容 | 通过单元测试迁移 |
 | P1.1 / P1.2 Windows CLI / 路径 | 路径逻辑通过单元测试；未在 Windows 实机执行 |
 
-P0.1 没有接入 Graphify；P1.1 / P1.2 只接入用户本地导入的 Graphify 历史快照，没有安装 Graphify Cloud、MCP 或 Agent Skill，也没有读取或修改现有 CRM/ERP、NEXUS 正式项目。P1.2 只读取已有的本地 `.atlas.json`，没有重新扫描 NEXUS 工作区。真实连线与流程场景都不进入默认构建。
+P0.1 没有接入 Graphify；P1.1 / P1.2 只接入用户本地导入的 Graphify 历史快照，没有安装 Graphify Cloud、MCP 或 Agent Skill，也没有读取或修改现有 CRM/ERP、NEXUS 正式项目。P1.2 / P1.3 只读取已有的本地 `.atlas.json`，没有重新扫描 NEXUS 工作区。真实连线与模块协作场景都不进入默认构建。
 
 ---
 
@@ -498,7 +498,7 @@ P0.1 没有接入 Graphify；P1.1 / P1.2 只接入用户本地导入的 Graphify
 7. 验收时重点检查：1920×1080 布局、完整/低动态/静态三档、失焦降载、中文字体回退、4K 缩放与详情面板滚动。
 8. 数据导入 CLI 使用 Node 跨平台 API，路径统一为 POSIX 相对路径；盘符路径与 UNC 会被拒绝。建议在 Windows 实机执行 `npm test` 与一次 `npm run import:graphify`。
 9. 浏览器导入使用标准 File API，不要求 Bash；快照数据是本地静态文件，离线可读。
-10. 流程场景需要本地 `.flows.json`；在 Windows 上执行 `npm run attach:flows`，或直接导入已附加流程的 `.atlas.json`。不要从 NEXUS 工作区自动生成。
+10. 模块协作场景需要本地 `.flows.json`；在 Windows 上执行 `npm run attach:flows`，或直接导入已附加场景的 `.atlas.json`。不要从 NEXUS 工作区自动生成。
 11. CDP 验收脚本 `verify-p13.mjs` / `verify-p12.mjs`、`perf-p12.mjs`、`record-p12.mjs` 使用 Node 20+ 内置 WebSocket；Windows 可使用同一 Chrome 路径或设置 `CHROME_PATH`。
 
 **Windows 状态：待 Windows 验收。**
