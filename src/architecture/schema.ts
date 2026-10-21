@@ -1,17 +1,20 @@
 /**
- * ATLAS 标准架构数据 Schema（P1.0）。
+ * ATLAS 标准架构数据 Schema（P1.0，P1.2 扩展流程场景）。
  *
  * 这一层刻意与 Graphify 原始 JSON 解耦：Canvas 场景、详情面板和导入/导出
  * 都只读取这里的结构，不再直接消费 graph.json。
  *
  * 版本策略：schemaVersion 使用 semver；主版本变化表示不兼容。导入时只接受
  * 同一主版本的数据，避免旧前端静默读取新结构。
+ *
+ * 1.2.0 增加可选的 flows（流程场景）。流程步骤引用节点位置，但不参与自动
+ * 推导；没有 flows 的 1.1 / 1.0 数据仍可导入，解析后为空数组。
  */
 
 export const ATLAS_SCHEMA_ID = 'atlas.architecture';
-export const ATLAS_SCHEMA_VERSION = '1.1.0';
+export const ATLAS_SCHEMA_VERSION = '1.2.0';
 export const ATLAS_SCHEMA_MAJOR = 1;
-export const ATLAS_SCHEMA_MINOR = 1;
+export const ATLAS_SCHEMA_MINOR = 2;
 
 export type AtlasSourceKind = 'demo' | 'graphify';
 export type AtlasSourceOrigin = 'demo' | 'bundled' | 'file-import';
@@ -314,6 +317,36 @@ export interface AtlasSourceDescriptor {
   origin: AtlasSourceOrigin;
 }
 
+/**
+ * 流程场景是本地附加的“解释材料”，不是自动生成的业务流程图。
+ * 每一步都必须指向快照里真实存在的文件与符号；步骤之间的连边由
+ * 数据集中的关系实时计算，缺口不会自动补全。
+ */
+export interface AtlasFlowStep {
+  id: string;
+  /** 面向普通用户的一步标题。 */
+  title: string;
+  /** 这一步在源码中被证实的职责，不描述未经核实的运行时行为。 */
+  description: string;
+  moduleId: AtlasModuleId;
+  file: string;
+  symbol: string;
+  line: number | null;
+  /** 为什么可以这样描述；引用源码职责或注释。 */
+  note: string;
+}
+
+export interface AtlasFlowScenario {
+  id: string;
+  title: string;
+  summary: string;
+  entryModuleId: AtlasModuleId;
+  steps: AtlasFlowStep[];
+  /** 场景整理者的审核记录；不代表步骤之间的运行时顺序已被验证。 */
+  review: AtlasReview;
+  disclaimer: string;
+}
+
 export interface AtlasDataset {
   schemaId: typeof ATLAS_SCHEMA_ID;
   schemaVersion: string;
@@ -328,6 +361,8 @@ export interface AtlasDataset {
   nodes: AtlasNode[];
   relations: AtlasRelation[];
   diagnostics: AtlasDiagnostics;
+  /** 可选流程场景；旧版数据导入后为空数组，不会自动生成。 */
+  flows: AtlasFlowScenario[];
 }
 
 export type AtlasErrorCode =
@@ -350,6 +385,7 @@ export type AtlasErrorCode =
   | 'ATLAS_DATASET_DUPLICATE_NODE'
   | 'ATLAS_DATASET_PATH_LEAK'
   | 'ATLAS_DATASET_SNAPSHOT_INVALID'
+  | 'ATLAS_DATASET_FLOW_INVALID'
   | 'SNAPSHOT_LOAD_FAILED'
   | 'IMPORT_FILE_MISSING'
   | 'IMPORT_FILE_UNRECOGNIZED';

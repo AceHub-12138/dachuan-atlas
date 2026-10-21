@@ -30,12 +30,12 @@ export function HomeIntro({ onEnterNexus, dataSource }: HomeIntroProps) {
         <span className="home-hint">悬停查看星系名称</span>
       </div>
       <div className="home-meta">
-        <span>{dataSource === 'demo' ? 'P0 VISUAL PROTOTYPE' : 'P1.1 LOCAL DATA'}</span>
+        <span>{dataSource === 'demo' ? 'P0 VISUAL PROTOTYPE' : 'P1.2 GRAPH PROJECTION'}</span>
         <i />
         <span>
           {dataSource === 'demo'
             ? '系统关系均为模拟数据'
-            : '画布为演示构图 · 架构数据需本地导入'}
+            : '真实跨模块关系需本地导入 · 静态证据不等于运行时顺序'}
         </span>
       </div>
     </section>

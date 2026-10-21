@@ -1,0 +1,11 @@
+{
+  "title": "DACHUAN ATLAS P1.2 真实架构投影演示",
+  "viewport": "1440×810",
+  "frames": 4969,
+  "captureFps": 98.12,
+  "outputFps": 30,
+  "durationSeconds": 50.64,
+  "mp4": "docs/recording/dachuan-atlas-p12-demo.mp4",
+  "webm": "docs/recording/dachuan-atlas-p12-demo.webm",
+  "note": "录屏由 CDP Page.startScreencast 捕获页面内容；光标与底部说明为录制时注入的演示层，不属于产品界面。"
+}

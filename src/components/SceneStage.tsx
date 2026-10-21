@@ -9,13 +9,17 @@ import type {
   ViewLevel,
 } from '../scene/AtlasScene';
 import type { ModuleId, SystemId } from '../data/atlas';
+import type { GraphProjection } from '../architecture/projection';
 
 interface SceneStageProps {
   view: ViewLevel;
   motion: MotionMode;
   selectedSystem: SystemId | null;
   activeModule: ModuleId | null;
+  graphProjection: GraphProjection | null;
+  showGraphLinks: boolean;
   onSelectNode: (selection: SceneSelection) => void;
+  onSelectGraphEdge: (edgeId: string) => void;
   onBackgroundClick: () => void;
 }
 
@@ -46,15 +50,18 @@ export function SceneStage({
   motion,
   selectedSystem,
   activeModule,
+  graphProjection,
+  showGraphLinks,
   onSelectNode,
+  onSelectGraphEdge,
   onBackgroundClick,
 }: SceneStageProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const sceneRef = useRef<AtlasScene | null>(null);
-  const callbacksRef = useRef({ onSelectNode, onBackgroundClick });
+  const callbacksRef = useRef({ onSelectNode, onSelectGraphEdge, onBackgroundClick });
   const [hover, setHover] = useState<SceneHover | null>(null);
 
-  callbacksRef.current = { onSelectNode, onBackgroundClick };
+  callbacksRef.current = { onSelectNode, onSelectGraphEdge, onBackgroundClick };
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -64,8 +71,11 @@ export function SceneStage({
       canvas,
       onHover: (nextHover) => setHover(nextHover),
       onSelect: (selection) => callbacksRef.current.onSelectNode(selection),
+      onSelectGraphEdge: (edgeId) => callbacksRef.current.onSelectGraphEdge(edgeId),
       onBackgroundClick: () => callbacksRef.current.onBackgroundClick(),
       initialMotion: motion,
+      graphProjection,
+      showGraphLinks,
       onMetrics: (metrics) => {
         window.__ATLAS_METRICS__ = metrics;
         canvas.dataset.fps = String(metrics.fps);
@@ -97,6 +107,14 @@ export function SceneStage({
     sceneRef.current?.setActiveModule(activeModule);
   }, [activeModule]);
 
+  useEffect(() => {
+    sceneRef.current?.setGraphProjection(graphProjection);
+  }, [graphProjection]);
+
+  useEffect(() => {
+    sceneRef.current?.setShowGraphLinks(showGraphLinks);
+  }, [showGraphLinks]);
+
   const visibleHover = activeModule ? null : hover;
   const position = visibleHover ? tooltipPosition(visibleHover) : null;
 
@@ -120,7 +138,9 @@ export function SceneStage({
             >
               <div className="node-tooltip__top">
                 <span>{visibleHover.kind === 'system' ? '系统星系' : '模块'}</span>
-                <span className="mini-mock">模拟</span>
+                <span className={`mini-mock ${visibleHover.simulated ? '' : 'mini-mock--real'}`}>
+                  {visibleHover.simulated ? '模拟' : '本地快照'}
+                </span>
               </div>
               <h3>{visibleHover.title}</h3>
               <span className="node-tooltip__latin">{visibleHover.latin}</span>

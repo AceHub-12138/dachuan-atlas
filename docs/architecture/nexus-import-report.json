@@ -167,5 +167,12 @@
     "file": "local-data/nexus/nexus-2026-10-20-2584284.atlas.json",
     "bytes": 3776675,
     "sha256": "f4c50c8687a0775ef4a051f5d41922f6f4e2384b2da366c372631804cf819e1a"
+  },
+  "p12": {
+    "datasetSchemaVersion": "1.2.0",
+    "baseImportSchemaVersion": "1.1.0",
+    "flowsAttached": 1,
+    "flowSteps": 7,
+    "note": "P1.2 施工时在本地快照上附加流程场景，并把数据集版本提升到 1.2.0；没有重新扫描 NEXUS 工作区，原始导入统计不变。"
   }
 }

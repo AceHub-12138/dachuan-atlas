@@ -18,7 +18,13 @@ const FORBIDDEN = [
   'nexus-2026-10-20',
   'VoiceMicrophone',
   'createVoiceOrchestrator',
+  'PcmPlayer',
+  'AudioStore',
+  'JarvisCore',
+  'sessionReducer',
+  'parseWireEvent',
   'src/lib/voice/',
+  'src/components/overlay/',
   'services/voice-orchestrator/',
 ];
 
@@ -37,7 +43,7 @@ async function main() {
   try {
     await stat(DIST);
   } catch {
-    console.error('[P1.1] 安全门禁失败：dist 不存在，请先运行 npm run build。');
+    console.error('[P1.2] 安全门禁失败：dist 不存在，请先运行 npm run build。');
     process.exitCode = 1;
     return;
   }
@@ -60,22 +66,22 @@ async function main() {
   }
 
   const hasMark = files.some((file) => path.relative(DIST, file) === 'atlas-mark.svg');
-  console.log(`[P1.1] 检查 ${files.length} 个 dist 文件`);
-  console.log(`[P1.1] 真实快照文件：${snapshots.length}`);
-  console.log(`[P1.1] 静态图标：${hasMark ? '存在' : '缺失'}`);
+  console.log(`[P1.2] 检查 ${files.length} 个 dist 文件`);
+  console.log(`[P1.2] 真实快照文件：${snapshots.length}`);
+  console.log(`[P1.2] 静态图标：${hasMark ? '存在' : '缺失'}`);
 
   if (findings.length || !hasMark) {
-    console.error('[P1.1] 安全门禁失败：');
+    console.error('[P1.2] 安全门禁失败：');
     for (const finding of findings) console.error(`  - ${finding}`);
     if (!hasMark) console.error('  - dist/atlas-mark.svg 缺失');
     process.exitCode = 1;
     return;
   }
 
-  console.log('[P1.1] 安全门禁通过：默认构建不含真实快照、提交 SHA 或内部源码定位。');
+  console.log('[P1.2] 安全门禁通过：默认构建不含真实快照、提交 SHA 或内部源码定位。');
 }
 
 main().catch((error) => {
-  console.error(`[P1.1] 安全门禁异常：${error instanceof Error ? error.message : String(error)}`);
+  console.error(`[P1.2] 安全门禁异常：${error instanceof Error ? error.message : String(error)}`);
   process.exitCode = 1;
 });

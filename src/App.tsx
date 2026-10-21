@@ -1,9 +1,11 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { MODULE_BY_ID, SYSTEM_BY_ID } from './data/atlas';
 import type { ModuleId, SystemId } from './data/atlas';
 import { AboutDialog } from './components/AboutDialog';
 import { ArchitecturePanel } from './components/ArchitecturePanel';
 import { BottomRail } from './components/BottomRail';
+import { FlowDialog } from './components/FlowDialog';
+import { GraphWorkspace } from './components/GraphWorkspace';
 import { HomeIntro } from './components/HomeIntro';
 import { ModulePanel } from './components/ModulePanel';
 import { NexusIntro } from './components/NexusIntro';
@@ -13,7 +15,13 @@ import { TopBar } from './components/TopBar';
 import type { AppLevel } from './components/TopBar';
 import { useArchitectureData } from './hooks/useArchitectureData';
 import { useMotionMode } from './hooks/useMotionMode';
+import { moduleProjection } from './architecture/projection';
 import type { SceneSelection } from './scene/AtlasScene';
+
+interface GraphOpenRequest {
+  initialModuleId?: ModuleId;
+  initialEdgeId?: string;
+}
 
 export default function App() {
   const { motion, setMotionMode } = useMotionMode();
@@ -23,8 +31,14 @@ export default function App() {
   const [selectedModule, setSelectedModule] = useState<ModuleId | null>(null);
   const [aboutOpen, setAboutOpen] = useState(false);
   const [dataOpen, setDataOpen] = useState(false);
+  const [graphOpen, setGraphOpen] = useState<GraphOpenRequest | null>(null);
+  const [flowOpen, setFlowOpen] = useState(false);
+  const [showGraphLinks, setShowGraphLinks] = useState(true);
   const [notice, setNotice] = useState<string | null>(null);
   const noticeTimer = useRef<number | null>(null);
+  const moduleGraph = useMemo(() => moduleProjection(architecture.dataset), [architecture.dataset]);
+  const hasRealGraph = architecture.source === 'nexus-snapshot' && moduleGraph.edges.length > 0;
+  const hasFlow = architecture.dataset.flows.length > 0;
 
   const showNotice = useCallback((message: string) => {
     setNotice(message);
@@ -88,6 +102,50 @@ export default function App() {
     [],
   );
 
+  const openGraph = useCallback(
+    (request: GraphOpenRequest = {}) => {
+      if (architecture.source !== 'nexus-snapshot') {
+        setDataOpen(true);
+        showNotice('架构投影需要本地 ATLAS 快照；请先导入 .atlas.json。');
+        return;
+      }
+      setAboutOpen(false);
+      setDataOpen(false);
+      setGraphOpen(request);
+    },
+    [architecture.source, showNotice],
+  );
+
+  const openFlow = useCallback(
+    (moduleId?: ModuleId) => {
+      if (!hasFlow) {
+        setDataOpen(true);
+        showNotice('流程场景来自本地附加数据；当前快照没有可用的流程说明。');
+        return;
+      }
+      const matching = moduleId
+        ? architecture.dataset.flows.find((flow) => flow.entryModuleId === moduleId)
+        : null;
+      if (moduleId && !matching) {
+        setDataOpen(true);
+        showNotice('当前模块没有对应的流程场景。');
+        return;
+      }
+      setAboutOpen(false);
+      setDataOpen(false);
+      setFlowOpen(true);
+    },
+    [architecture.dataset.flows, hasFlow, showNotice],
+  );
+
+  useEffect(() => {
+    if (architecture.source === 'demo') {
+      setGraphOpen(null);
+      setFlowOpen(false);
+    }
+    setShowGraphLinks(true);
+  }, [architecture.source]);
+
   const handleSelectNode = useCallback(
     (selection: SceneSelection) => {
       if (selection.kind === 'system') {
@@ -120,7 +178,7 @@ export default function App() {
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return;
-      if (dataOpen) return;
+      if (dataOpen || graphOpen || flowOpen) return;
       if (aboutOpen) {
         setAboutOpen(false);
         return;
@@ -135,7 +193,7 @@ export default function App() {
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [aboutOpen, dataOpen, goHome, level, selectedSystem]);
+  }, [aboutOpen, dataOpen, flowOpen, goHome, graphOpen, level, selectedSystem]);
 
   const sceneView = level === 'universe' ? 'universe' : 'nexus';
   const activeModule = level === 'module' ? selectedModule : null;
@@ -157,7 +215,12 @@ export default function App() {
         motion={motion}
         selectedSystem={level === 'universe' ? selectedSystem : null}
         activeModule={activeModule}
+        graphProjection={architecture.source === 'nexus-snapshot' ? moduleGraph : null}
+        showGraphLinks={showGraphLinks}
         onSelectNode={handleSelectNode}
+        onSelectGraphEdge={(edgeId) => {
+          if (hasRealGraph) openGraph({ initialEdgeId: edgeId });
+        }}
         onBackgroundClick={handleBackgroundClick}
       />
 
@@ -214,8 +277,15 @@ export default function App() {
           <NexusIntro
             muted={level === 'module'}
             dataSource={architecture.source}
+            graph={architecture.source === 'nexus-snapshot' ? moduleGraph : null}
+            showGraphLinks={showGraphLinks}
+            hasFlow={hasFlow}
             onBackHome={goHome}
             onOpenModule={openModule}
+            onOpenGraph={() => openGraph()}
+            onOpenFlow={() => openFlow()}
+            onOpenData={() => setDataOpen(true)}
+            onToggleGraphLinks={() => setShowGraphLinks((value) => !value)}
           />
         </div>
 
@@ -224,8 +294,11 @@ export default function App() {
             key={selectedModule}
             moduleId={selectedModule}
             data={architecture}
+            hasFlow={hasFlow}
             onBack={() => setLevel('nexus')}
             onHome={goHome}
+            onOpenGraph={openGraph}
+            onOpenFlow={openFlow}
           />
         ) : null}
       </main>
@@ -256,6 +329,27 @@ export default function App() {
 
       {dataOpen ? (
         <ArchitecturePanel data={architecture} onClose={() => setDataOpen(false)} />
+      ) : null}
+
+      {graphOpen ? (
+        <GraphWorkspace
+          dataset={architecture.dataset}
+          motion={motion}
+          initialModuleId={graphOpen.initialModuleId}
+          initialEdgeId={graphOpen.initialEdgeId}
+          onClose={() => setGraphOpen(null)}
+        />
+      ) : null}
+
+      {flowOpen ? (
+        <FlowDialog
+          dataset={architecture.dataset}
+          onClose={() => setFlowOpen(false)}
+          onOpenData={() => {
+            setFlowOpen(false);
+            setDataOpen(true);
+          }}
+        />
       ) : null}
     </div>
   );

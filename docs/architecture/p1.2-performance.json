@@ -1,0 +1,376 @@
+{
+  "environment": {
+    "platform": "darwin",
+    "chrome": "Google Chrome (headful)",
+    "deviceScaleFactor": 1,
+    "note": "FPS 与 frameMs 来自页面 __ATLAS_METRICS__；不是完整 GPU 合成链路分析。"
+  },
+  "demoFull1920": {
+    "label": "演示 · 完整 · 1920×1080",
+    "samples": [
+      {
+        "fps": 100,
+        "frameMs": 1.07,
+        "p95FrameMs": 2.2,
+        "width": 1920,
+        "height": 1080,
+        "rafActive": true,
+        "focused": true,
+        "motion": "full",
+        "stars": 387
+      },
+      {
+        "fps": 100.1,
+        "frameMs": 1.36,
+        "p95FrameMs": 2.2,
+        "width": 1920,
+        "height": 1080,
+        "rafActive": true,
+        "focused": true,
+        "motion": "full",
+        "stars": 387
+      },
+      {
+        "fps": 99.9,
+        "frameMs": 1.49,
+        "p95FrameMs": 2.8,
+        "width": 1920,
+        "height": 1080,
+        "rafActive": true,
+        "focused": true,
+        "motion": "full",
+        "stars": 387
+      },
+      {
+        "fps": 100,
+        "frameMs": 1.43,
+        "p95FrameMs": 2.4,
+        "width": 1920,
+        "height": 1080,
+        "rafActive": true,
+        "focused": true,
+        "motion": "full",
+        "stars": 387
+      }
+    ],
+    "fpsAverage": 100,
+    "frameMsAverage": 1.34,
+    "p95FrameMsAverage": 2.4,
+    "p95FrameMsMax": 2.8,
+    "rafActive": true
+  },
+  "demoLow1920": {
+    "label": "演示 · 低动态 · 1920×1080",
+    "samples": [
+      {
+        "fps": 100.1,
+        "frameMs": 1.47,
+        "p95FrameMs": 2.5,
+        "width": 1920,
+        "height": 1080,
+        "rafActive": true,
+        "focused": true,
+        "motion": "low",
+        "stars": 387
+      },
+      {
+        "fps": 99.9,
+        "frameMs": 1.34,
+        "p95FrameMs": 2.3,
+        "width": 1920,
+        "height": 1080,
+        "rafActive": true,
+        "focused": true,
+        "motion": "low",
+        "stars": 387
+      },
+      {
+        "fps": 100.1,
+        "frameMs": 1.06,
+        "p95FrameMs": 2,
+        "width": 1920,
+        "height": 1080,
+        "rafActive": true,
+        "focused": true,
+        "motion": "low",
+        "stars": 387
+      },
+      {
+        "fps": 100,
+        "frameMs": 1.24,
+        "p95FrameMs": 2.2,
+        "width": 1920,
+        "height": 1080,
+        "rafActive": true,
+        "focused": true,
+        "motion": "low",
+        "stars": 387
+      }
+    ],
+    "fpsAverage": 100,
+    "frameMsAverage": 1.28,
+    "p95FrameMsAverage": 2.25,
+    "p95FrameMsMax": 2.5,
+    "rafActive": true
+  },
+  "demoStatic1920": {
+    "label": "演示 · 静态 · 1920×1080",
+    "samples": [
+      {
+        "fps": 0,
+        "frameMs": 1.19,
+        "p95FrameMs": 2.3,
+        "width": 1920,
+        "height": 1080,
+        "rafActive": false,
+        "focused": true,
+        "motion": "static",
+        "stars": 387
+      },
+      {
+        "fps": 0,
+        "frameMs": 1.19,
+        "p95FrameMs": 2.3,
+        "width": 1920,
+        "height": 1080,
+        "rafActive": false,
+        "focused": true,
+        "motion": "static",
+        "stars": 387
+      },
+      {
+        "fps": 0,
+        "frameMs": 1.19,
+        "p95FrameMs": 2.3,
+        "width": 1920,
+        "height": 1080,
+        "rafActive": false,
+        "focused": true,
+        "motion": "static",
+        "stars": 387
+      }
+    ],
+    "fpsAverage": 0,
+    "frameMsAverage": 1.19,
+    "p95FrameMsAverage": 2.3,
+    "p95FrameMsMax": 2.3,
+    "rafActive": false
+  },
+  "realFull1920": {
+    "label": "真实快照 · 完整 · 1920×1080",
+    "samples": [
+      {
+        "fps": 100,
+        "frameMs": 0.67,
+        "p95FrameMs": 0.8,
+        "width": 1920,
+        "height": 1080,
+        "rafActive": true,
+        "focused": true,
+        "motion": "full",
+        "stars": 387
+      },
+      {
+        "fps": 100,
+        "frameMs": 0.7,
+        "p95FrameMs": 0.8,
+        "width": 1920,
+        "height": 1080,
+        "rafActive": true,
+        "focused": true,
+        "motion": "full",
+        "stars": 387
+      },
+      {
+        "fps": 100.1,
+        "frameMs": 0.63,
+        "p95FrameMs": 0.7,
+        "width": 1920,
+        "height": 1080,
+        "rafActive": true,
+        "focused": true,
+        "motion": "full",
+        "stars": 387
+      },
+      {
+        "fps": 99.9,
+        "frameMs": 0.73,
+        "p95FrameMs": 1.7,
+        "width": 1920,
+        "height": 1080,
+        "rafActive": true,
+        "focused": true,
+        "motion": "full",
+        "stars": 387
+      }
+    ],
+    "fpsAverage": 100,
+    "frameMsAverage": 0.68,
+    "p95FrameMsAverage": 1,
+    "p95FrameMsMax": 1.7,
+    "rafActive": true
+  },
+  "graphFull1920": {
+    "label": "架构投影 · 模块层 · 1920×1080",
+    "samples": [
+      {
+        "fps": 99.9,
+        "frameMs": 0.25,
+        "rafActive": true
+      },
+      {
+        "fps": 100,
+        "frameMs": 0.24,
+        "rafActive": true
+      },
+      {
+        "fps": 100.1,
+        "frameMs": 0.24,
+        "rafActive": true
+      },
+      {
+        "fps": 99.9,
+        "frameMs": 0.2,
+        "rafActive": true
+      }
+    ],
+    "fpsAverage": 100,
+    "frameMsAverage": 0.23,
+    "p95FrameMsAverage": null,
+    "p95FrameMsMax": null,
+    "rafActive": true
+  },
+  "graphStatic1920": {
+    "label": "架构投影 · 静态 · 1920×1080",
+    "samples": [
+      {
+        "fps": 0,
+        "frameMs": 0.21,
+        "rafActive": false
+      },
+      {
+        "fps": 0,
+        "frameMs": 0.21,
+        "rafActive": false
+      },
+      {
+        "fps": 0,
+        "frameMs": 0.21,
+        "rafActive": false
+      }
+    ],
+    "fpsAverage": 0,
+    "frameMsAverage": 0.21,
+    "p95FrameMsAverage": null,
+    "p95FrameMsMax": null,
+    "rafActive": false
+  },
+  "realFull2560": {
+    "label": "真实快照 · 完整 · 2560×1440",
+    "samples": [
+      {
+        "fps": 99.9,
+        "frameMs": 1.38,
+        "p95FrameMs": 2.7,
+        "width": 2560,
+        "height": 1440,
+        "rafActive": true,
+        "focused": true,
+        "motion": "full",
+        "stars": 687
+      },
+      {
+        "fps": 100.1,
+        "frameMs": 1.26,
+        "p95FrameMs": 2.8,
+        "width": 2560,
+        "height": 1440,
+        "rafActive": true,
+        "focused": true,
+        "motion": "full",
+        "stars": 687
+      },
+      {
+        "fps": 99.9,
+        "frameMs": 1.19,
+        "p95FrameMs": 3,
+        "width": 2560,
+        "height": 1440,
+        "rafActive": true,
+        "focused": true,
+        "motion": "full",
+        "stars": 687
+      },
+      {
+        "fps": 100,
+        "frameMs": 1.16,
+        "p95FrameMs": 3,
+        "width": 2560,
+        "height": 1440,
+        "rafActive": true,
+        "focused": true,
+        "motion": "full",
+        "stars": 687
+      }
+    ],
+    "fpsAverage": 100,
+    "frameMsAverage": 1.25,
+    "p95FrameMsAverage": 2.88,
+    "p95FrameMsMax": 3,
+    "rafActive": true
+  },
+  "realFull3840": {
+    "label": "真实快照 · 完整 · 3840×2160",
+    "samples": [
+      {
+        "fps": 100,
+        "frameMs": 1.3,
+        "p95FrameMs": 3.2,
+        "width": 3840,
+        "height": 2160,
+        "rafActive": true,
+        "focused": true,
+        "motion": "full",
+        "stars": 794
+      },
+      {
+        "fps": 100,
+        "frameMs": 1.23,
+        "p95FrameMs": 2.9,
+        "width": 3840,
+        "height": 2160,
+        "rafActive": true,
+        "focused": true,
+        "motion": "full",
+        "stars": 794
+      },
+      {
+        "fps": 100.1,
+        "frameMs": 1.24,
+        "p95FrameMs": 2.8,
+        "width": 3840,
+        "height": 2160,
+        "rafActive": true,
+        "focused": true,
+        "motion": "full",
+        "stars": 794
+      },
+      {
+        "fps": 99.9,
+        "frameMs": 1.05,
+        "p95FrameMs": 2.5,
+        "width": 3840,
+        "height": 2160,
+        "rafActive": true,
+        "focused": true,
+        "motion": "full",
+        "stars": 794
+      }
+    ],
+    "fpsAverage": 100,
+    "frameMsAverage": 1.21,
+    "p95FrameMsAverage": 2.85,
+    "p95FrameMsMax": 3.2,
+    "rafActive": true
+  }
+}

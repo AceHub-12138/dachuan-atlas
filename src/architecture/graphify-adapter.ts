@@ -778,6 +778,7 @@ export function adaptGraphify(input: AdaptGraphifyInput): AtlasDataset {
     modules,
     nodes: sortBy(nodes, (node) => node.id),
     relations: sortBy(relations, (relation) => relation.id),
+    flows: [],
     diagnostics,
   };
 }

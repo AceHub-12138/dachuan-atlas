@@ -23,6 +23,7 @@ import {
   smoothstep,
 } from './math';
 import type { Point } from './math';
+import { EVIDENCE_COLORS, type GraphProjection, type ProjectionEdge } from '../architecture/projection';
 
 export type ViewLevel = 'universe' | 'nexus';
 export type MotionMode = 'full' | 'low' | 'static';
@@ -40,6 +41,8 @@ export interface SceneHover {
   available: boolean;
   color: string;
   anchor: Point;
+  /** NEXUS 已接入本地快照时，模块提示不再标记为“模拟”。 */
+  simulated: boolean;
 }
 
 export interface SceneSelection {
@@ -66,7 +69,10 @@ export interface AtlasSceneOptions {
   onSelect?: (selection: SceneSelection) => void;
   onBackgroundClick?: () => void;
   onMetrics?: (metrics: SceneMetrics) => void;
+  onSelectGraphEdge?: (edgeId: string) => void;
   initialMotion?: MotionMode;
+  graphProjection?: GraphProjection | null;
+  showGraphLinks?: boolean;
 }
 
 interface Star {
@@ -109,6 +115,19 @@ interface HitArea {
   id: SystemId | ModuleId;
   circle: { x: number; y: number; r: number };
   rect: { x: number; y: number; width: number; height: number };
+}
+
+/**
+ * 真实跨模块连线的缓存几何。投影数据变化时才重建；绘制循环只读取
+ * 采样点和证据类型，不会遍历代码图。
+ */
+interface GraphEdgeGeometry {
+  edge: ProjectionEdge;
+  points: Point[];
+  mid: Point;
+  normal: Point;
+  fromModuleId: ModuleId;
+  toModuleId: ModuleId;
 }
 
 interface Camera {
@@ -175,6 +194,11 @@ export class AtlasScene {
   private hoverLevels = new Map<string, number>();
   private hitAreas: HitArea[] = [];
 
+  private graphProjection: GraphProjection | null = null;
+  private showGraphLinks = true;
+  private graphEdges: GraphEdgeGeometry[] = [];
+  private graphEdgeHover: string | null = null;
+
   private stars: Star[] = [];
   private dust: DustMote[] = [];
   private meteors: Meteor[] = [];
@@ -222,6 +246,8 @@ export class AtlasScene {
     }
     this.context = context;
     this.motion = options.initialMotion ?? 'full';
+    this.graphProjection = options.graphProjection ?? null;
+    this.showGraphLinks = options.showGraphLinks ?? true;
 
     this.boundPointerMove = (event) => this.handlePointerMove(event);
     this.boundPointerLeave = () => this.handlePointerLeave();
@@ -245,6 +271,7 @@ export class AtlasScene {
     this.resizeObserver.observe(this.canvas);
 
     this.buildRelations();
+    this.buildGraphEdges();
     this.resize();
     this.startLoop();
 
@@ -285,6 +312,24 @@ export class AtlasScene {
     } else {
       this.startLoop();
     }
+  }
+
+  setGraphProjection(projection: GraphProjection | null) {
+    if (this.graphProjection === projection) return;
+    this.graphProjection = projection;
+    this.graphEdgeHover = null;
+    this.buildGraphEdges();
+    if (this.motion === 'static') this.requestRender();
+    else this.startLoop();
+  }
+
+  setShowGraphLinks(show: boolean) {
+    if (this.showGraphLinks === show) return;
+    this.showGraphLinks = show;
+    if (!show) this.graphEdgeHover = null;
+    this.canvas.style.cursor = 'default';
+    if (this.motion === 'static') this.requestRender();
+    else this.startLoop();
   }
 
   setMotion(mode: MotionMode) {
@@ -517,6 +562,72 @@ export class AtlasScene {
     this.relations = [...universeRelations, ...nexusRelations];
   }
 
+  /**
+   * 真实跨模块连线的几何只在投影变化时计算。Canvas 不读取 Graphify
+   * 原始数据，只消费已经聚合好的模块级边。
+   */
+  private buildGraphEdges() {
+    const projection = this.graphProjection;
+    if (
+      !projection ||
+      projection.level !== 'module' ||
+      projection.simulated ||
+      !this.showGraphLinks
+    ) {
+      this.graphEdges = [];
+      return;
+    }
+    const modulePosition = (id: ModuleId): Point => ({
+      x: NEXUS_POSITION.x + MODULE_BY_ID[id].offset.x,
+      y: NEXUS_POSITION.y + MODULE_BY_ID[id].offset.y,
+    });
+    const reversePairs = new Set(projection.edges.map((edge) => `${edge.from}>${edge.to}`));
+    const edges: GraphEdgeGeometry[] = [];
+
+    for (const edge of projection.edges) {
+      if (!edge.from.startsWith('module:') || !edge.to.startsWith('module:')) continue;
+      const fromModuleId = edge.from.slice('module:'.length) as ModuleId;
+      const toModuleId = edge.to.slice('module:'.length) as ModuleId;
+      if (!MODULE_BY_ID[fromModuleId] || !MODULE_BY_ID[toModuleId]) continue;
+      const from = modulePosition(fromModuleId);
+      const to = modulePosition(toModuleId);
+      const dx = to.x - from.x;
+      const dy = to.y - from.y;
+      const length = Math.hypot(dx, dy) || 1;
+      const normal = { x: -dy / length, y: dx / length };
+      const direction = { x: dx / length, y: dy / length };
+      const start = { x: from.x + direction.x * 34, y: from.y + direction.y * 34 };
+      const end = { x: to.x - direction.x * 22, y: to.y - direction.y * 22 };
+      const reciprocal = reversePairs.has(`${edge.to}>${edge.from}`);
+      const sign = reciprocal ? (edge.from < edge.to ? 1 : -1) : 1;
+      const bow = 30 * sign;
+      const controlA = {
+        x: from.x + dx * 0.31 + normal.x * bow * 0.55,
+        y: from.y + dy * 0.31 + normal.y * bow * 0.55,
+      };
+      const controlB = {
+        x: from.x + dx * 0.7 + normal.x * bow,
+        y: from.y + dy * 0.7 + normal.y * bow,
+      };
+      const points = sampleCubic(start, controlA, controlB, end, 56);
+      const mid = pointAtSamples(points, 0.5);
+      const before = pointAtSamples(points, 0.46);
+      const after = pointAtSamples(points, 0.54);
+      const tangentX = after.x - before.x;
+      const tangentY = after.y - before.y;
+      const tangentLength = Math.hypot(tangentX, tangentY) || 1;
+      edges.push({
+        edge,
+        points,
+        mid,
+        normal: { x: -tangentY / tangentLength, y: tangentX / tangentLength },
+        fromModuleId,
+        toModuleId,
+      });
+    }
+    this.graphEdges = edges;
+  }
+
   private syncCameraTarget() {
     if (this.view === 'universe') {
       this.cameraTarget = { ...UNIVERSE_CAMERA };
@@ -736,17 +847,23 @@ export class AtlasScene {
     }
 
     const hit = this.findHit(x, y);
+    const edgeHit = hit ? null : this.findGraphEdgeHit(x, y);
+    if (this.graphEdgeHover !== edgeHit) {
+      this.graphEdgeHover = edgeHit;
+      if (this.motion === 'static') this.requestRender();
+    }
     const nextHover = hit ? this.makeHover(hit) : null;
     if (nextHover?.key !== this.hoverKey) this.setHover(nextHover);
     else if (!hit && this.hoverKey) this.setHover(null);
 
-    this.canvas.style.cursor = hit ? 'pointer' : 'default';
+    this.canvas.style.cursor = hit || edgeHit ? 'pointer' : 'default';
     if (this.motion === 'static') this.requestRender();
   }
 
   private handlePointerLeave() {
     this.pointer.x = 0;
     this.pointer.y = 0;
+    this.graphEdgeHover = null;
     this.canvas.style.cursor = 'default';
     if (this.hoverKey) this.setHover(null);
     if (this.motion === 'static') this.requestRender();
@@ -755,12 +872,48 @@ export class AtlasScene {
   private handleClick(event: MouseEvent) {
     if (Math.abs(this.viewMix - this.viewMixTarget) > 0.08) return;
     const rect = this.canvas.getBoundingClientRect();
-    const hit = this.findHit(event.clientX - rect.left, event.clientY - rect.top);
-    if (!hit) {
-      this.options.onBackgroundClick?.();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+    const hit = this.findHit(x, y);
+    if (hit) {
+      this.options.onSelect?.({ kind: hit.kind, id: hit.id });
       return;
     }
-    this.options.onSelect?.({ kind: hit.kind, id: hit.id });
+    const edgeId = this.findGraphEdgeHit(x, y);
+    if (edgeId) {
+      this.options.onSelectGraphEdge?.(edgeId);
+      return;
+    }
+    this.options.onBackgroundClick?.();
+  }
+
+  /**
+   * 真实连线的命中检测只做屏幕空间折线距离；阈值随基础缩放调整。
+   * 它在模块命中之后执行，模块节点始终优先。
+   */
+  private findGraphEdgeHit(x: number, y: number): string | null {
+    if (!this.showGraphLinks || !this.graphEdges.length) return null;
+    const threshold = 10 * clamp(this.baseScale, 0.8, 1.8);
+    let best: { id: string; distance: number } | null = null;
+    for (const geometry of this.graphEdges) {
+      const points = geometry.points;
+      for (let index = 1; index < points.length; index += 1) {
+        const a = this.worldToScreen(points[index - 1]);
+        const b = this.worldToScreen(points[index]);
+        const dx = b.x - a.x;
+        const dy = b.y - a.y;
+        const lengthSquared = dx * dx + dy * dy;
+        if (lengthSquared <= 0.0001) continue;
+        const t = clamp(((x - a.x) * dx + (y - a.y) * dy) / lengthSquared, 0, 1);
+        const px = a.x + dx * t;
+        const py = a.y + dy * t;
+        const distance = Math.hypot(x - px, y - py);
+        if (distance <= threshold && (!best || distance < best.distance)) {
+          best = { id: geometry.edge.id, distance };
+        }
+      }
+    }
+    return best?.id ?? null;
   }
 
   private findHit(x: number, y: number): HitArea | null {
@@ -779,8 +932,10 @@ export class AtlasScene {
 
   private makeHover(hit: HitArea): SceneHover {
     const anchor = { x: hit.circle.x, y: hit.circle.y };
+    const realNexus = this.graphProjection?.sourceKind === 'graphify';
     if (hit.kind === 'system') {
       const system = SYSTEM_BY_ID[hit.id as SystemId];
+      const simulated = system.id !== 'nexus' || !realNexus;
       return {
         key: `system:${system.id}`,
         kind: 'system',
@@ -788,14 +943,31 @@ export class AtlasScene {
         title: system.name,
         latin: system.latin,
         description: system.description,
-        meta: system.available ? 'P0 可进入 · 点击进入模块星系' : '模拟星系 · 点击选中查看',
+        meta:
+          system.id === 'nexus' && realNexus
+            ? '本地历史快照已接入 · 点击进入模块星系'
+            : system.available
+              ? 'P0 可进入 · 点击进入模块星系'
+              : '未接入真实架构数据 · 点击选中查看',
         available: system.available,
         color: system.color,
         anchor,
+        simulated,
       };
     }
     const module = MODULE_BY_ID[hit.id as ModuleId];
     const isActive = this.activeModule === module.id;
+    const meta = isActive
+      ? realNexus
+        ? '详情已展开 · 本地快照 · 点击空白处收起'
+        : '详情已展开 · 模拟 · 点击空白处收起'
+      : module.id === 'canvas' && realNexus
+        ? '分布式能力集合 · 主归属 0 · 点击查看'
+        : realNexus
+          ? '本地快照 · 跨模块关系已接入 · 点击查看'
+          : module.available
+            ? '点击查看模块详情'
+            : 'P0 占位模块 · 详情暂未开放';
     return {
       key: `module:${module.id}`,
       kind: 'module',
@@ -803,14 +975,11 @@ export class AtlasScene {
       title: module.name,
       latin: module.latin,
       description: module.description,
-      meta: isActive
-        ? '详情已展开 · 点击空白处收起'
-        : module.available
-          ? '点击查看模块详情'
-          : 'P0 占位模块 · 详情暂未开放',
+      meta,
       available: module.available,
       color: module.color,
       anchor,
+      simulated: !realNexus,
     };
   }
 
@@ -1163,6 +1332,7 @@ export class AtlasScene {
     ctx.globalAlpha = alpha;
     this.drawNexusGuides(alpha);
     this.drawNexusRelations(focusKey, alpha);
+    this.drawGraphLinks(alpha);
     this.drawNexusHub(alpha, focusKey);
     for (let index = 0; index < MODULES.length; index += 1) {
       const module = MODULES[index];
@@ -1235,6 +1405,167 @@ export class AtlasScene {
       // before its destination has arrived.
       const trim = clamp(0.24 + progress * 0.76, 0, 1);
       this.drawRelation(relation, alpha * reveal, factor, trim);
+    }
+  }
+
+  /**
+   * 真实关系与装饰构图必须一眼可分：
+   * - 直接提取：青灰实线
+   * - Graphify 推断：琥珀虚线
+   * - AI 源码复核：紫色实线 + 菱形标记
+   * - 独立人工审核：绿色双线
+   * - 仍有待核实关系：红色点线叠加 + “?” 标记
+   * 真实连线不运行光流粒子，避免被误读为运行时调用方向。
+   */
+  private drawGraphLinks(alpha: number) {
+    const projection = this.graphProjection;
+    if (!projection || projection.simulated || !this.showGraphLinks || !this.graphEdges.length) return;
+    const focusKey = this.activeModule ? `module:${this.activeModule}` : null;
+    const ctx = this.context;
+
+    for (const geometry of this.graphEdges) {
+      const fromIndex = MODULE_INDEX_BY_ID[geometry.fromModuleId];
+      const toIndex = MODULE_INDEX_BY_ID[geometry.toModuleId];
+      if (fromIndex === undefined || toIndex === undefined) continue;
+      const reveal = Math.min(
+        this.moduleLayout(MODULES[fromIndex], fromIndex).reveal,
+        this.moduleLayout(MODULES[toIndex], toIndex).reveal,
+      );
+      const trim = clamp((reveal - 0.2) / 0.8, 0, 1);
+      if (trim <= 0.02) continue;
+
+      const { edge, points, mid, normal } = geometry;
+      const focused = !focusKey || edge.from === focusKey || edge.to === focusKey;
+      const hovered = this.graphEdgeHover === edge.id;
+      // When a module panel is open, real links become context, not the focus.
+      const emphasis = hovered ? 1.6 : focusKey ? (focused ? 0.5 : 0.1) : 1;
+      const color = EVIDENCE_COLORS[edge.evidenceClass];
+      const baseAlpha = clamp(alpha * emphasis * 0.82, 0, 0.96);
+      const end = trim >= 1 ? points[points.length - 1] : pointAtSamples(points, trim);
+      const lastIndex = Math.max(1, Math.floor((points.length - 1) * trim));
+      const dash =
+        edge.evidenceClass === 'inferred'
+          ? [5, 6]
+          : edge.evidenceClass === 'unverified'
+            ? [1, 5]
+            : [];
+
+      const tracePath = () => {
+        ctx.beginPath();
+        for (let index = 0; index <= lastIndex; index += 1) {
+          const point = points[index];
+          if (index === 0) ctx.moveTo(point.x, point.y);
+          else ctx.lineTo(point.x, point.y);
+        }
+        ctx.lineTo(end.x, end.y);
+        ctx.stroke();
+      };
+
+      ctx.save();
+      ctx.globalCompositeOperation = 'source-over';
+
+      // A dark underlay keeps evidence lines legible where decorative orbits
+      // cross them; it is not a second relationship.
+      ctx.strokeStyle = rgba('#030507', 0.52 * alpha);
+      ctx.lineWidth = 4.2;
+      tracePath();
+
+      ctx.strokeStyle = rgba(color, baseAlpha);
+      ctx.lineWidth = (hovered ? 1.8 : 1.25) * (edge.mixed ? 1.06 : 1);
+      ctx.setLineDash(dash);
+      tracePath();
+      ctx.setLineDash([]);
+
+      if (edge.unverifiedCount > 0 && edge.evidenceClass !== 'unverified') {
+        ctx.strokeStyle = rgba('#D98C8C', 0.62 * alpha * emphasis);
+        ctx.lineWidth = 0.75;
+        ctx.setLineDash([2, 7]);
+        tracePath();
+        ctx.setLineDash([]);
+      }
+
+      if (edge.evidenceClass === 'human-reviewed') {
+        ctx.strokeStyle = rgba(color, 0.5 * alpha * emphasis);
+        ctx.lineWidth = 0.65;
+        ctx.beginPath();
+        for (let index = 0; index <= lastIndex; index += 1) {
+          const point = points[index];
+          const x = point.x + normal.x * 1.9;
+          const y = point.y + normal.y * 1.9;
+          if (index === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+      }
+
+      if (edge.evidenceClass === 'ai-reviewed' || edge.evidenceCounts['ai-reviewed'] > 0) {
+        const marker = pointAtSamples(points, 0.33);
+        ctx.save();
+        ctx.translate(marker.x, marker.y);
+        ctx.rotate(Math.PI / 4);
+        ctx.strokeStyle = rgba('#B9A7FF', 0.85 * alpha * emphasis);
+        ctx.fillStyle = rgba('#0A0C12', 0.8);
+        ctx.lineWidth = 0.8;
+        ctx.beginPath();
+        ctx.rect(-3.1, -3.1, 6.2, 6.2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      if (trim > 0.9 && (!focusKey || hovered)) {
+        const badgeAlpha = smoothstep(0.9, 1, trim) * alpha * (hovered ? 1 : 0.92);
+        // Keep badges on the hub side of vertical edges; on the left column
+        // they would otherwise sit on top of the module index.
+        const midScreen = this.worldToScreen(mid);
+        // Vertical edges near the left column would put their badges on top of
+        // the module index at their midpoint. Slide those badges toward the
+        // target module, below the list, instead of hiding them.
+        const leftVertical =
+          midScreen.x < this.width * 0.34 && Math.abs(normal.x) > Math.abs(normal.y);
+        const warningT = leftVertical ? 0.72 : 0.44;
+        const countT = leftVertical ? 0.82 : 0.58;
+        const side = midScreen.x < this.width / 2
+          ? Math.sign(normal.x || 1)
+          : -Math.sign(normal.x || 1);
+        const badgeNormal = { x: normal.x * side, y: normal.y * side };
+        if (edge.unverifiedCount > 0) {
+          const warningPoint = pointAtSamples(points, warningT);
+          const x = warningPoint.x + badgeNormal.x * 16;
+          const y = warningPoint.y + badgeNormal.y * 16;
+          ctx.fillStyle = rgba('#05080B', 0.9 * badgeAlpha);
+          ctx.strokeStyle = rgba('#D98C8C', 0.84 * badgeAlpha);
+          ctx.lineWidth = 0.75;
+          ctx.beginPath();
+          ctx.arc(x, y, 7, 0, TAU);
+          ctx.fill();
+          ctx.stroke();
+          ctx.fillStyle = rgba('#EFB7B7', 0.96 * badgeAlpha);
+          ctx.font = `500 8.6px ${FONT_MONO}`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText('?', x, y + 0.4);
+        }
+
+        const countPoint = pointAtSamples(points, countT);
+        const x = countPoint.x + badgeNormal.x * 16;
+        const y = countPoint.y + badgeNormal.y * 16;
+        const label = `${edge.count}`;
+        ctx.font = `500 8.6px ${FONT_MONO}`;
+        const width = ctx.measureText(label).width + 10;
+        ctx.fillStyle = rgba('#05080B', 0.86 * badgeAlpha);
+        ctx.strokeStyle = rgba(color, 0.46 * badgeAlpha);
+        ctx.lineWidth = 0.6;
+        roundRect(ctx, x - width / 2, y - 7, width, 14, 7);
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = rgba(color, 0.95 * badgeAlpha);
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(label, x, y + 0.4);
+      }
+
+      ctx.restore();
     }
   }
 
@@ -1818,7 +2149,13 @@ export class AtlasScene {
 
     ctx.fillStyle = rgba(primary ? accent : '#DCE6EB', (0.68 + hover * 0.22) * textAlpha);
     ctx.font = `400 9.4px ${FONT_SANS}`;
-    ctx.fillText(system.stat, x, labelTop + 43);
+    const realNexus = this.graphProjection?.sourceKind === 'graphify';
+    const statLabel = realNexus
+      ? system.id === 'nexus'
+        ? '本地快照 · 04 模块 · 跨模块关系已接入'
+        : '未接入真实架构数据'
+      : system.stat;
+    ctx.fillText(statLabel, x, labelTop + 43);
 
     if (selected || (hover > 0.24 && system.available)) {
       const chipWidth = primary ? 58 : 46;
@@ -2293,7 +2630,21 @@ export class AtlasScene {
     ctx.font = `400 8.2px ${FONT_MONO}`;
     ctx.fillText(module.latin, position.x, y + 38);
 
-    const label = active ? '详情已展开 · 模拟' : module.available ? '可查看详情 · 模拟' : 'P0 占位 · 模拟';
+    const realNexus = this.graphProjection?.sourceKind === 'graphify';
+    const label =
+      module.id === 'canvas'
+        ? realNexus
+          ? '分布式能力集合 · 主归属 0'
+          : '分布式能力集合 · 模拟'
+        : active
+          ? realNexus
+            ? '详情已展开 · 本地快照'
+            : '详情已展开 · 模拟'
+          : realNexus
+            ? '可查看详情 · 本地快照'
+            : module.available
+              ? '可查看详情 · 模拟'
+              : 'P0 占位 · 模拟';
     ctx.fillStyle = rgba(module.color, (active ? 0.98 : module.available ? 0.86 : 0.6) * textAlpha);
     ctx.font = `400 8.8px ${FONT_SANS}`;
     ctx.fillText(label, position.x, y + 54);

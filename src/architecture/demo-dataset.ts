@@ -161,6 +161,7 @@ export function buildDemoDataset(): AtlasDataset {
     modules,
     nodes: [...systemNodes, ...moduleNodes].sort((a, b) => a.id.localeCompare(b.id, 'en')),
     relations: relations.sort((a, b) => a.id.localeCompare(b.id, 'en')),
+    flows: [],
     diagnostics: {
       issues: [
         {

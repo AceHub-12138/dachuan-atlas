@@ -14,7 +14,13 @@ const FORBIDDEN = [
   'nexus-2026-10-20',
   'VoiceMicrophone',
   'createVoiceOrchestrator',
+  'PcmPlayer',
+  'AudioStore',
+  'JarvisCore',
+  'sessionReducer',
+  'parseWireEvent',
   'src/lib/voice/',
+  'src/components/overlay/',
   'services/voice-orchestrator/',
 ];
 

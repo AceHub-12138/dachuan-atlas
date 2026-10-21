@@ -7,8 +7,8 @@ interface BottomRailProps {
 
 const instructions: Record<AppLevel, string> = {
   universe: '悬停探索星系，点击 NEXUS 进入模块层',
-  nexus: '选择模块，点击「语音交互」查看详情',
-  module: '按模块 → 文件 → 符号查看关系；Esc 返回模块星系',
+  nexus: '点击模块查看详情；左下角投影摘要可打开真实关系',
+  module: '查看关系证据；按流程理解会标出图谱缺口',
 };
 
 const stageIndex: Record<AppLevel, number> = {
@@ -44,7 +44,7 @@ export function BottomRail({ level, dataSource }: BottomRailProps) {
         <span>
           {dataSource === 'demo'
             ? '所有连接均为模拟关系，非真实代码依赖'
-            : '画布连接为演示构图；真实关系只在本地导入后显示'}
+            : '真实跨模块连线来自本地快照；其余画布元素为演示构图'}
         </span>
       </div>
     </footer>

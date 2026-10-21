@@ -63,7 +63,7 @@ describe('ATLAS 标准数据校验', () => {
     expect(() => parseAtlasDataset(raw)).toThrow(/不兼容/);
 
     const futureMinor = demoJson();
-    futureMinor.schemaVersion = '1.2.0';
+    futureMinor.schemaVersion = '1.3.0';
     expect(() => parseAtlasDataset(futureMinor)).toThrow(/不兼容/);
   });
 
@@ -87,7 +87,7 @@ describe('ATLAS 标准数据校验', () => {
     delete (raw.diagnostics as Record<string, unknown>).reviewCounts;
 
     const migrated = parseAtlasDataset(raw);
-    expect(migrated.schemaVersion).toBe('1.1.0');
+    expect(migrated.schemaVersion).toBe('1.2.0');
     expect(migrated.schemaMigratedFrom).toBe('1.0.0');
     expect(migrated.nodes).toHaveLength(nodes.length);
     expect(migrated.relations).toHaveLength(relations.length);

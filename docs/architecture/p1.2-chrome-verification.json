@@ -1,0 +1,153 @@
+{
+  "headful": true,
+  "imported": {
+    "badge": "本地快照 · 2584284",
+    "schemaFlow": null
+  },
+  "graphSummary": {
+    "text": "GRAPH PROJECTION真实关系投影真实连线已显示3 组模块对48 条关系2 AI 复核46 待核实独立人工审核AI 源码复核Graphify 直接提取Graphify 推断尚无审核?待核实叠加中枢连接 · 构图青=直接提取 · 紫=AI 复核 · 琥珀=推断 · 红点=待核实 · 橙=构图打开架构投影按流程理解仅绘制有证据的跨模块关系；Canvas 无主归属，不画模块连线。橙色中枢连接、星点、轨道与流星为装饰，不参与统计。",
+    "toggle": "true"
+  },
+  "toggledOff": "false",
+  "moduleLevel": {
+    "nodes": "4",
+    "edges": "3",
+    "breadcrumb": "全部模块模块层级",
+    "banner": "3 条聚合边 · 48 条关系 · 当前层级最多渲染 4 个节点",
+    "nodeRows": [
+      "经营数据展示",
+      "语音交互",
+      "动画调度",
+      "Canvas 渲染"
+    ],
+    "legend": "独立人工审核AI 源码复核Graphify 直接提取Graphify 推断尚无审核?待核实叠加"
+  },
+  "fileLevel": {
+    "nodes": "9",
+    "edges": "6",
+    "breadcrumb": "全部模块/经营数据展示文件层级",
+    "omitted": "另有 34 个本模块文件和 18 个关联文件未显示。"
+  },
+  "symbolLevel": {
+    "nodes": "14",
+    "edges": "23",
+    "breadcrumb": "全部模块/经营数据展示/format.ts符号层级"
+  },
+  "pathResult": {
+    "text": "找到 4 个节点、3 步关系不是唯一路径浏览器麦克风microphone.ts← 包含 · 直接提取src/lib/voice/microphone.ts#L15pcm-player.ts→ 从…导入 · AI 复核src/lib/voice/microphone.ts#L2PCM 播放器→ 包含 · 直接提取src/lib/voice/pcm-player.ts#L28该路径只说明标准数据集中存在哪些静态关系；不表示运行时调用顺序，也不保证这是唯一路径。",
+    "steps": 4,
+    "note": "该路径只说明标准数据集中存在哪些静态关系；不表示运行时调用顺序，也不保证这是唯一路径。"
+  },
+  "noPath": "当前图谱未发现关系路径这不表示两个模块没有关系，只表示当前标准数据集中没有找到已记录的关系路径；也可能被当前筛选条件排除。",
+  "graphMetrics": {
+    "fps": 99.9,
+    "frameMs": 0.23,
+    "nodes": 4,
+    "edges": 3,
+    "rafActive": true
+  },
+  "modulePanel": {
+    "links": "与哪些模块有已记录关系2 个方向本模块 →经营数据展示25 条直接提取 25查看证据← 对方模块经营数据展示10 条直接提取 10查看证据连线只表示标准数据集中有证据的静态关系；带待核实的关系不会被标成已确认。不表示运行时调用顺序。",
+    "flow": true,
+    "graphButton": true
+  },
+  "flow": {
+    "steps": 7,
+    "transitions": [
+      "3 条文件级关系",
+      "4 条文件级关系",
+      "6 条文件级关系",
+      "3 条文件级关系",
+      "图谱缺口",
+      "图谱缺口"
+    ],
+    "gaps": 2,
+    "summary": "语音提问：从麦克风到覆盖层按已核对的源码职责，解释一次语音提问进入系统、由服务端编排并回到覆盖层呈现所涉及的主要部分。4有图边2明确缺口0位置缺失AI场景整理来源",
+    "footer": "步骤顺序用于解释已记录职责，不代表已验证的运行时调用顺序；步骤之间没有图边时明确标记为缺口，不自动补全。NEXUS 本地历史快照 · 2584284"
+  },
+  "gapDetail": "这里是一个明确的图谱缺口界面不会为缺口补一条线，也不会把这一步描述成已验证的运行时调用。 如需确认，只能回到源码或补充新的架构快照。",
+  "exportInfo": {
+    "file": "nexus-2584284-2026-10-20.atlas.json",
+    "schemaVersion": "1.2.0",
+    "flows": 1,
+    "steps": 7,
+    "nodes": 1390,
+    "relations": 3170
+  },
+  "demoSummary": "DEMO CONSTELLATION演示星系模拟保留 P0.1 原有星系结构。导入本地 ATLAS 快照后，才会出现可追溯的跨模块连线和按流程理解。导入本地快照",
+  "layout1440": {
+    "intro": {
+      "x": 70.546875,
+      "y": 95,
+      "width": 345.59375,
+      "height": 623.8125,
+      "bottom": 718.8125
+    },
+    "summary": {
+      "x": 70.546875,
+      "y": 568.5,
+      "width": 345.59375,
+      "height": 150.3125,
+      "bottom": 718.8125
+    },
+    "rail": {
+      "x": 70.546875,
+      "y": 749,
+      "width": 1298.90625,
+      "height": 54,
+      "bottom": 803
+    },
+    "scrollWidth": 1440,
+    "innerWidth": 1440
+  },
+  "graph1440": {
+    "dialog": {
+      "x": 70.546875,
+      "y": 70.5625,
+      "width": 1392,
+      "height": 668.875
+    },
+    "scrollWidth": 1440,
+    "innerWidth": 1440
+  },
+  "metrics": {
+    "fps": 99.9,
+    "frameMs": 1.55,
+    "p95FrameMs": 2.6,
+    "width": 1920,
+    "height": 1080,
+    "dpr": 1,
+    "motion": "full",
+    "stars": 387,
+    "rafActive": true,
+    "focused": true
+  },
+  "metrics4k": {
+    "fps": 99.9,
+    "frameMs": 0.86,
+    "p95FrameMs": 0.9,
+    "width": 3840,
+    "height": 2160,
+    "dpr": 1,
+    "motion": "full",
+    "stars": 794,
+    "rafActive": true,
+    "focused": true
+  },
+  "consoleErrors": [],
+  "screenshots": [
+    "P1.2-01-nexus-real-1920x1080.png",
+    "P1.2-02-graph-modules-1920x1080.png",
+    "P1.2-03-graph-files-1920x1080.png",
+    "P1.2-04-graph-symbols-1920x1080.png",
+    "P1.2-05-path-query-1920x1080.png",
+    "P1.2-06-no-path-1920x1080.png",
+    "P1.2-07-module-relations-1920x1080.png",
+    "P1.2-07b-module-links-1920x1080.png",
+    "P1.2-08-flow-gap-1920x1080.png",
+    "P1.2-09-demo-regression-1920x1080.png",
+    "P1.2-10-nexus-real-1440x810.png",
+    "P1.2-11-graph-1440x810.png",
+    "P1.2-12-nexus-real-3840x2160.png"
+  ]
+}

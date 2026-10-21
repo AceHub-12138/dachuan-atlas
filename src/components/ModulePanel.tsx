@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import type { ModuleId } from '../data/atlas';
 import { REVIEW_LABELS, reviewLabel, type AtlasNode, type AtlasReview } from '../architecture/schema';
 import { moduleReviewCounts } from '../architecture/query';
+import { edgeEvidenceSummary, moduleProjection } from '../architecture/projection';
 import type { ArchitectureDataState } from '../hooks/useArchitectureData';
 import { ArrowLeft, ArrowRight, CloseIcon } from './Icons';
 import { RelationExplorer } from './RelationExplorer';
@@ -10,8 +11,11 @@ import { RelationExplorer } from './RelationExplorer';
 interface ModulePanelProps {
   moduleId: ModuleId;
   data: ArchitectureDataState;
+  hasFlow: boolean;
   onBack: () => void;
   onHome: () => void;
+  onOpenGraph: (options: { initialModuleId?: ModuleId; initialEdgeId?: string }) => void;
+  onOpenFlow: (moduleId: ModuleId) => void;
 }
 
 function componentNodeId(dataset: ArchitectureDataState['dataset'], file: string, symbol: string): string | null {
@@ -37,13 +41,28 @@ function ReviewLine({ review }: { review: AtlasReview }) {
   );
 }
 
-export function ModulePanel({ moduleId, data, onBack, onHome }: ModulePanelProps) {
+export function ModulePanel({
+  moduleId,
+  data,
+  hasFlow,
+  onBack,
+  onHome,
+  onOpenGraph,
+  onOpenFlow,
+}: ModulePanelProps) {
   const [explorer, setExplorer] = useState<{ moduleId: ModuleId; nodeId?: string } | null>(null);
   const module = data.dataset.modules.find((item) => item.id === moduleId);
   const snapshot = data.source === 'nexus-snapshot' ? data.dataset.snapshot : null;
   const isReal = snapshot !== null;
   const counts = moduleReviewCounts(data.dataset, moduleId);
   const components = module?.keyComponents.slice(0, 5) ?? [];
+  const moduleGraph = moduleProjection(data.dataset);
+  const moduleEdges = isReal
+    ? moduleGraph.edges.filter(
+        (edge) => edge.from === `module:${moduleId}` || edge.to === `module:${moduleId}`,
+      )
+    : [];
+  const moduleNames = new Map(data.dataset.modules.map((item) => [item.id, item.name]));
   const gaps = [...(module?.gaps ?? []), ...(module?.notes ?? [])].filter(
     (note, index, list) => note && list.indexOf(note) === index,
   );
@@ -158,17 +177,89 @@ export function ModulePanel({ moduleId, data, onBack, onHome }: ModulePanelProps
               </div>
             </div>
             {isReal ? (
-              <button
-                type="button"
-                className="module-explorer-link"
-                onClick={() => setExplorer({ moduleId })}
-              >
-                <span>打开关系探索</span>
-                <ArrowRight />
-              </button>
+              <div className="module-links">
+                <div className="module-links__head">
+                  <span>与哪些模块有已记录关系</span>
+                  <em>{moduleEdges.length} 个方向</em>
+                </div>
+                {moduleEdges.length ? (
+                  <ul>
+                    {moduleEdges.map((edge) => {
+                      const outgoing = edge.from === `module:${moduleId}`;
+                      const otherId = (outgoing ? edge.to : edge.from).replace('module:', '');
+                      const otherName = moduleNames.get(otherId as ModuleId) ?? otherId;
+                      return (
+                        <li key={edge.id}>
+                          <button
+                            type="button"
+                            onClick={() => onOpenGraph({ initialEdgeId: edge.id })}
+                          >
+                            <span className="module-links__direction">
+                              {outgoing ? '本模块 →' : '← 对方模块'}
+                            </span>
+                            <strong>{otherName}</strong>
+                            <span className="module-links__count">{edge.count} 条</span>
+                            <em>{edgeEvidenceSummary(edge)}</em>
+                            <span className="module-links__action">
+                              查看证据
+                              <ArrowRight />
+                            </span>
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                ) : (
+                  <p className="module-panel__hint">
+                    {moduleId === 'canvas'
+                      ? 'Canvas 渲染没有主归属节点，当前快照没有以它为主模块的跨模块关系。它只作为分布式能力集合展示，不伪造模块边界。'
+                      : '当前快照没有以本模块为主归属的跨模块关系。没有边不代表不存在依赖。'}
+                  </p>
+                )}
+                <p className="module-links__note">
+                  连线只表示标准数据集中有证据的静态关系
+                  {moduleEdges.some((edge) => edge.unverifiedCount > 0)
+                    ? '；带待核实的关系不会被标成已确认'
+                    : ''}
+                  。不表示运行时调用顺序。
+                </p>
+              </div>
+            ) : null}
+            {isReal ? (
+              <div className="module-workspace-actions">
+                <button
+                  type="button"
+                  className="module-explorer-link"
+                  onClick={() => setExplorer({ moduleId })}
+                >
+                  <span>打开关系探索</span>
+                  <ArrowRight />
+                </button>
+                <button
+                  type="button"
+                  className="module-explorer-link module-explorer-link--graph"
+                  onClick={() => onOpenGraph({ initialModuleId: moduleId })}
+                >
+                  <span>打开架构投影</span>
+                  <ArrowRight />
+                </button>
+              </div>
             ) : (
               <p className="module-panel__hint">导入本地 ATLAS 快照后可探索真实关系。</p>
             )}
+            {isReal && hasFlow ? (
+              <button
+                type="button"
+                className="module-flow-link"
+                onClick={() => onOpenFlow(moduleId)}
+              >
+                <span>
+                  <strong>按流程理解</strong>
+                  <em>从已核对职责整理，明确标出图谱缺口</em>
+                </span>
+                <ArrowRight />
+              </button>
+            ) : null}
           </section>
 
           <section className="panel-section">
@@ -272,7 +363,7 @@ export function ModulePanel({ moduleId, data, onBack, onHome }: ModulePanelProps
 
           <p className="panel-disclaimer">
             {snapshot
-              ? '画布中的模块位置与连线仍是演示构图；本页只展示有数据证据的模块组成与关系。没有边不等于不存在调用。'
+              ? '模块位置、中枢连接、星点与轨道仍是演示构图；跨模块连线只有在本地快照中确有证据时才会绘制。没有边不等于不存在调用，静态关系也不等于运行时顺序。'
               : '本页为 P0.1 演示内容，不代表真实代码依赖。导入本地 ATLAS 快照后查看真实模块详情。'}
           </p>
         </div>

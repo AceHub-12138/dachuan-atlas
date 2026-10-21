@@ -9,6 +9,8 @@ import {
   MODULE_ORDER,
   type AtlasDataset,
   type AtlasEvidenceRef,
+  type AtlasFlowScenario,
+  type AtlasFlowStep,
   type AtlasModuleComponent,
   type AtlasModuleId,
   type AtlasModuleRecord,
@@ -288,7 +290,7 @@ function migrateDatasetV1(raw: Record<string, unknown>): Record<string, unknown>
         ...raw.snapshot,
         notes: [
           ...(Array.isArray(raw.snapshot.notes) ? raw.snapshot.notes : []),
-          '数据集由 ATLAS Schema 1.0.0 迁移到 1.1.0；原始快照字段未改写。',
+          '数据集由 ATLAS Schema 1.0.0 迁移到 1.2.0；原始快照字段未改写。',
         ],
       }
     : raw.snapshot;
@@ -302,6 +304,7 @@ function migrateDatasetV1(raw: Record<string, unknown>): Record<string, unknown>
     modules,
     diagnostics,
     snapshot,
+    flows: [],
   };
 }
 
@@ -410,6 +413,80 @@ function validateModule(raw: unknown, index: number): AtlasModuleRecord {
   return module;
 }
 
+function flowSymbolMatches(nodeSymbol: string, stepSymbol: string): boolean {
+  return (
+    nodeSymbol === stepSymbol ||
+    nodeSymbol === `${stepSymbol}()` ||
+    nodeSymbol === `.${stepSymbol}()` ||
+    nodeSymbol === `.${stepSymbol}`
+  );
+}
+
+function validateFlowStep(
+  raw: unknown,
+  flowIndex: number,
+  stepIndex: number,
+  nodes: AtlasNode[],
+): AtlasFlowStep {
+  if (!isRecord(raw)) {
+    throw new AtlasDataError('ATLAS_DATASET_FLOW_INVALID', `flows[${flowIndex}].steps[${stepIndex}] 必须是对象。`);
+  }
+  const step = raw as unknown as AtlasFlowStep;
+  requireString(step.id, `flows[${flowIndex}].steps[${stepIndex}].id`);
+  requireString(step.title, `flows[${flowIndex}].steps[${stepIndex}].title`);
+  requireString(step.description, `flows[${flowIndex}].steps[${stepIndex}].description`);
+  requireString(step.symbol, `flows[${flowIndex}].steps[${stepIndex}].symbol`);
+  requireString(step.note, `flows[${flowIndex}].steps[${stepIndex}].note`);
+  requireString(step.file, `flows[${flowIndex}].steps[${stepIndex}].file`);
+  validateRelativeFile(step.file, `flows[${flowIndex}].steps[${stepIndex}].file`);
+  if (!isAtlasModuleId(step.moduleId)) {
+    throw new AtlasDataError('ATLAS_DATASET_FLOW_INVALID', `flows[${flowIndex}].steps[${stepIndex}].moduleId 不是合法模块。`);
+  }
+  if (step.line !== null && (typeof step.line !== 'number' || !Number.isFinite(step.line) || step.line <= 0)) {
+    throw new AtlasDataError('ATLAS_DATASET_FLOW_INVALID', `flows[${flowIndex}].steps[${stepIndex}].line 必须是正数或 null。`);
+  }
+  const node = nodes.find(
+    (candidate) =>
+      candidate.sourceFile === step.file &&
+      flowSymbolMatches(candidate.symbol, step.symbol) &&
+      candidate.moduleIds.includes(step.moduleId),
+  );
+  if (!node) {
+    throw new AtlasDataError(
+      'ATLAS_DATASET_FLOW_INVALID',
+      `flows[${flowIndex}].steps[${stepIndex}] 指向当前快照中不存在的源码节点：${step.file}#${step.symbol}。`,
+    );
+  }
+  return step;
+}
+
+function validateFlow(raw: unknown, flowIndex: number, nodes: AtlasNode[]): AtlasFlowScenario {
+  if (!isRecord(raw)) {
+    throw new AtlasDataError('ATLAS_DATASET_FLOW_INVALID', `flows[${flowIndex}] 必须是对象。`);
+  }
+  const flow = raw as unknown as AtlasFlowScenario;
+  requireString(flow.id, `flows[${flowIndex}].id`);
+  requireString(flow.title, `flows[${flowIndex}].title`);
+  requireString(flow.summary, `flows[${flowIndex}].summary`);
+  requireString(flow.disclaimer, `flows[${flowIndex}].disclaimer`);
+  if (!isAtlasModuleId(flow.entryModuleId)) {
+    throw new AtlasDataError('ATLAS_DATASET_FLOW_INVALID', `flows[${flowIndex}].entryModuleId 不是合法模块。`);
+  }
+  validateReview(flow.review, `flows[${flowIndex}].review`);
+  if (!Array.isArray(flow.steps) || flow.steps.length < 2 || flow.steps.length > 12) {
+    throw new AtlasDataError('ATLAS_DATASET_FLOW_INVALID', `flows[${flowIndex}].steps 必须是 2–12 步的数组。`);
+  }
+  const stepIds = new Set<string>();
+  for (const [stepIndex, step] of flow.steps.entries()) {
+    const validated = validateFlowStep(step, flowIndex, stepIndex, nodes);
+    if (stepIds.has(validated.id)) {
+      throw new AtlasDataError('ATLAS_DATASET_FLOW_INVALID', `flows[${flowIndex}] 步骤 ID 重复：${validated.id}。`);
+    }
+    stepIds.add(validated.id);
+  }
+  return flow;
+}
+
 function validateSnapshot(raw: AtlasDataset): void {
   if (raw.source.kind === 'demo') {
     if (raw.snapshot !== null) {
@@ -447,6 +524,7 @@ function canonicalize(dataset: AtlasDataset): AtlasDataset {
     ),
     nodes: [...dataset.nodes].sort((a, b) => a.id.localeCompare(b.id, 'en')),
     relations: [...dataset.relations].sort((a, b) => a.id.localeCompare(b.id, 'en')),
+    flows: [...(dataset.flows ?? [])].sort((a, b) => a.id.localeCompare(b.id, 'en')),
   };
 }
 
@@ -466,7 +544,7 @@ export function parseAtlasDataset(rawInput: unknown): AtlasDataset {
   if (major !== ATLAS_SCHEMA_MAJOR || !Number.isFinite(minor) || minor > ATLAS_SCHEMA_MINOR) {
     throw new AtlasDataError(
       'ATLAS_SCHEMA_VERSION_UNSUPPORTED',
-      `ATLAS Schema ${version} 与当前版本 ${ATLAS_SCHEMA_VERSION} 不兼容（支持 1.0.x – 1.1.x）。`,
+      `ATLAS Schema ${version} 与当前版本 ${ATLAS_SCHEMA_VERSION} 不兼容（支持 1.0.x – 1.2.x）。`,
     );
   }
   const raw = minor < 1 ? migrateDatasetV1(rawInput) : rawInput;
@@ -494,6 +572,9 @@ export function parseAtlasDataset(rawInput: unknown): AtlasDataset {
   }
   const relations = rawRelations.map((relation, index) => validateRelation(relation, index, nodeIds));
   const modules = raw.modules.map((module, index) => validateModule(module, index));
+  const flows = Array.isArray(raw.flows)
+    ? raw.flows.map((flow, index) => validateFlow(flow, index, nodes))
+    : [];
   if (!isRecord(raw.diagnostics)) {
     throw new AtlasDataError('ATLAS_DATASET_INVALID', 'diagnostics 缺失。');
   }
@@ -510,6 +591,7 @@ export function parseAtlasDataset(rawInput: unknown): AtlasDataset {
     nodes,
     relations,
     modules,
+    flows,
     diagnostics: diagnostics as unknown as AtlasDataset['diagnostics'],
   });
 }

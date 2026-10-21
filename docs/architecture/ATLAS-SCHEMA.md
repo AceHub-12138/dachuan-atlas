@@ -1,7 +1,7 @@
-# ATLAS 标准架构数据 Schema · v1.1.0
+# ATLAS 标准架构数据 Schema · v1.2.0
 
 - **Schema ID**：`atlas.architecture`
-- **版本**：`1.1.0`（兼容 1.0.x 导入）
+- **版本**：`1.2.0`（兼容 1.0.x / 1.1.x 导入）
 - **实现**：`src/architecture/schema.ts`
 - **校验 / 导入导出**：`src/architecture/dataset.ts`
 - **Graphify 适配器**：`src/architecture/graphify-adapter.ts`
@@ -29,7 +29,7 @@ D 层本轮没有改动。Canvas 不读取 B 层节点，也不会把 1,390 个�
 ```ts
 interface AtlasDataset {
   schemaId: 'atlas.architecture';
-  schemaVersion: '1.1.0';
+  schemaVersion: '1.2.0';
   generatedAt: string;              // 数据集构建时间，不是源码提交时间
   source: AtlasSourceDescriptor;    // 演示 / Graphify；是否模拟；来源形式
   snapshot: AtlasSnapshot | null;   // 演示数据必须为 null
@@ -38,6 +38,7 @@ interface AtlasDataset {
   nodes: AtlasNode[];
   relations: AtlasRelation[];
   diagnostics: AtlasDiagnostics;
+  flows: AtlasFlowScenario[];       // 可选流程场景；旧版导入后为空数组
 }
 ```
 
@@ -70,8 +71,8 @@ interface AtlasNode {
   scope: 'product' | 'test' | 'tooling' | 'external' | 'demo';
   moduleId: AtlasModuleId | null;   // 主模块，唯一
   moduleIds: AtlasModuleId[];       // 全部匹配模块，主模块在首位
-  displayName: string | null;       // 仅在人工核对后填写
-  responsibility: string | null;    // 仅在人工核对后填写
+  displayName: string | null;       // 仅在源码核对后填写（P1.1 为 AI 源码复核，非人工）
+  responsibility: string | null;    // 仅在源码核对后填写（P1.1 为 AI 源码复核，非人工）
   sourceConfidence: 'EXTRACTED' | 'INFERRED' | 'AMBIGUOUS'
     | 'SIMULATED' | 'UNKNOWN';
   review: AtlasReview;              // 名称/职责注释的审核状态
@@ -162,7 +163,7 @@ interface AtlasSnapshot {
   importedAt: string;         // 本次导入时间
   graphifyVersion: string;    // 0.9.92
   graphifySchemaVersion: number; // 1
-  atlasSchemaVersion: string; // 1.1.0
+  atlasSchemaVersion: string; // 1.2.0
   history: true;              // 强制历史标记
   importStatus: 'complete' | 'partial';
   stats: AtlasSnapshotStats;
@@ -218,7 +219,42 @@ interface AtlasModuleRecord {
 
 ---
 
-## 8. 诊断
+## 8. 流程场景（P1.2）
+
+```ts
+interface AtlasFlowStep {
+  id: string;
+  title: string;
+  description: string;
+  moduleId: AtlasModuleId;
+  file: string;       // 仓库相对路径
+  symbol: string;
+  line: number | null;
+  note: string;       // 为什么可以这样描述
+}
+
+interface AtlasFlowScenario {
+  id: string;
+  title: string;
+  summary: string;
+  entryModuleId: AtlasModuleId;
+  steps: AtlasFlowStep[];  // 2–12 步
+  review: AtlasReview;     // 场景整理来源；不代表运行时顺序已验证
+  disclaimer: string;
+}
+```
+
+约束：
+
+1. 每个步骤必须能在当前快照中找到 `sourceFile + symbol + moduleId` 对应的节点；找不到时导入直接拒绝（`ATLAS_DATASET_FLOW_INVALID`）。
+2. 流程场景只存在于本地附加数据中，不由前端自动生成，也不进入默认构建。
+3. 步骤之间的连边由数据集关系实时计算；没有边时界面必须显示“图谱缺口”，不得补线。
+4. 场景审核记录通常为 `ai-source-review`；它不是独立人工审核，也不证明步骤顺序是运行时调用顺序。
+5. 本地附加流程使用 `npm run attach:flows -- --dataset ... --flows ...`；工具只读取已有快照，不扫描源码工作区。
+
+---
+
+## 9. 诊断
 
 ```ts
 interface AtlasDiagnostics {
@@ -245,11 +281,11 @@ interface AtlasDiagnostics {
 
 ---
 
-## 9. 导入与导出契约
+## 10. 导入与导出契约
 
-### 9.1 ATLAS 标准数据导入
+### 10.1 ATLAS 标准数据导入
 
-`parseAtlasDataset(raw)` 接受 `1.0.x` 与 `1.1.x`。1.0 数据会自动迁移审核字段与模块详情字段，并写入 `schemaMigratedFrom`；源码事实（提交、节点、关系、证据）不改写。它是严格校验：
+`parseAtlasDataset(raw)` 接受 `1.0.x`、`1.1.x` 与 `1.2.x`。1.0 数据会自动迁移审核字段与模块详情字段，并写入 `schemaMigratedFrom`；源码事实（提交、节点、关系、证据）不改写。它是严格校验：
 
 - `schemaId` 错误 → `ATLAS_SCHEMA_ID_UNSUPPORTED`
 - 主版本不兼容 → `ATLAS_SCHEMA_VERSION_UNSUPPORTED`
@@ -257,11 +293,12 @@ interface AtlasDiagnostics {
 - 悬空关系 → `ATLAS_DATASET_DANGLING_RELATION`
 - 绝对路径 / `..` → `ATLAS_DATASET_PATH_LEAK`
 - 快照字段缺失或 `history !== true` → `ATLAS_DATASET_SNAPSHOT_INVALID`
+- 流程步骤引用不存在节点 → `ATLAS_DATASET_FLOW_INVALID`
 - JSON 解析失败 → `ATLAS_INVALID_JSON`
 
 标准数据是 ATLAS 自己的格式；出现上述问题说明文件损坏或被手工改坏，应当拒绝，而不是猜测修复。
 
-### 9.2 Graphify 原始导入
+### 10.2 Graphify 原始导入
 
 `adaptGraphify({ graph, manifest?, options? })` 是容错的：
 
@@ -272,19 +309,19 @@ interface AtlasDiagnostics {
 - 包名（如 `@playwright/test`）按外部节点处理；
 - 没有清单时 `commit = 'unknown'`、`importStatus = 'partial'`。
 
-### 9.3 浏览器端
+### 10.3 浏览器端
 
 - 默认构建只包含演示数据；真实快照不进入 `public/` 或 `dist/`；
 - 用户通过文件选择器主动导入本地 `.atlas.json`，解析后仅驻留内存；
 - Graphify 原始 `graph.json` 先在本地 CLI 转换，浏览器不携带 NEXUS 专属模块规则；
-- 不进入 rAF，不在每帧重新解析；
+- 不进入 rAF，不在每帧重新解析；模块级 Graph Projection 按数据集缓存，文件/符号层按导航焦点缓存；
 - 导入失败保留演示数据，Canvas 不崩溃；
 - 文件导入全部在本地浏览器内完成，不上传；
 - 导出的 JSON 包含内部符号名与相对路径，界面明确提示不要公开上传。
 
 ---
 
-## 10. 隐私与跨平台
+## 11. 隐私与跨平台
 
 - 数据集中不保存源仓库绝对路径、本机用户名或 Graphify POC 目录。
 - 路径统一为 `/` 分隔；Windows 反斜杠在归一化时转换。
