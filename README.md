@@ -447,10 +447,11 @@ P0.1 没有接入 Graphify；P1.1 / P1.2 只接入用户本地导入的 Graphify
 
 项目此前没有 Git 仓库。P1.2 施工前已建立 **仅本机、无远程仓库** 的私有版本控制，并做了两份离线备份；没有创建 GitHub / GitLab 远程，也没有上传任何文件。
 
-- **本地 Git**：`git init -b main`；基线提交 `fa2c129`（P1.1 状态）；`local-data/`、`dist/`、`node_modules/` 继续由 `.gitignore` 排除。
-- **本地 bundle**：`~/Documents/DACHUAN-ATLAS-private-backups/atlas-p11-20261021-071831.bundle`（约 54 MB，包含源码与文档历史，不含 `local-data`）。
-- **快照副本**：同一备份目录下的 `local-data-20261021-071831/nexus/...atlas.json`（原始 1.1 快照）和 P1.2 附加流程前的临时副本。
-- **校验**：同目录 `SHA256-20261021-071831.txt` 记录 bundle 与快照的 SHA-256。
+- **本地 Git**：`git init -b main`；基线提交 `fa2c129`（P1.1 状态），P1.2 提交 `df71ab8`；`local-data/`、`dist/`、`node_modules/` 继续由 `.gitignore` 排除。
+- **P1.1 基线 bundle**：`~/Documents/DACHUAN-ATLAS-private-backups/atlas-p11-20261021-071831.bundle`（约 54 MB，不含 `local-data`）。
+- **P1.2 bundle**：`~/Documents/DACHUAN-ATLAS-private-backups/atlas-p12-20261021-092706.bundle`（约 75 MB，包含源码、文档、截图与录屏；不含 `local-data`）。
+- **快照副本**：`local-data-p12-20261021-092706/` 下包含 1.2.0 快照与流程文件；另有 P1.1 原始快照副本。
+- **校验**：`SHA256-p12-20261021-092706.txt` 记录 bundle、快照与流程的 SHA-256；同目录 `RESTORE-p12-*.md` 说明恢复步骤。
 - **建议的后续做法**：
   1. 继续使用本地 Git，按轮次提交；不要添加公开远程。
   2. 每次结构变更后生成新的 `git bundle`，复制到加密磁盘或离线介质。
