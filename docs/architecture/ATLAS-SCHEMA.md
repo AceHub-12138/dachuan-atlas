@@ -474,6 +474,9 @@ multiModuleNodes 是重叠维度，不参与相加
 `GRAPHIFY_NODE_PARTITION` 诊断会写出同样的公式，避免把“9 已归类 + 2 未分类”
 误读成总节点 12 丢失了一个。
 
+该公式适用于 Graphify 导入数据集。演示数据的节点 scope 为 `demo`，
+不参与 product/test/tooling 分区，也不生成 `GRAPHIFY_NODE_PARTITION`。
+
 ---
 
 ## 10. 导入与导出契约
