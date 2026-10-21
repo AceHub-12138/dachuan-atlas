@@ -2,7 +2,15 @@
 
 本目录中的截图均来自实际运行的 DACHUAN ATLAS 页面，通过浏览器截图 API 生成，不是效果图或后期合成。
 
-测试环境：macOS 15.7.8 / Apple M1 Ultra / 独立 Google Chrome（P1.2 / P1.3）/ ZCode 内置 Chromium 146（P0.1）。
+测试环境：macOS 15.7.8 / Apple M1 Ultra / 独立 Google Chrome（P1.2 / P1.3 / P1.4）/ ZCode 内置 Chromium 146（P0.1）。
+
+## P1.4 双维度作用域回归
+
+| 文件 | 内容 | 视口 |
+| --- | --- | --- |
+| `P1.4-01-nexus-real-1920x1080.png` | 导入 1.3 快照后迁移到 Schema 1.4，NEXUS 四模块 / 3 组 / 48 条关系保持不变 | 1920×1080 |
+
+P1.4 截图由 `tools/verify-p14.mjs` 通过独立 Chrome CDP 生成；结果见 [../architecture/p1.4-chrome-verification.json](../architecture/p1.4-chrome-verification.json)。本轮没有视觉施工；截图用于证明现有构图未回归。
 
 ## P1.3 可信解释与备份
 
