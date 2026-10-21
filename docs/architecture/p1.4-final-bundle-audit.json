@@ -1,0 +1,83 @@
+{
+  "generatedAt": "2026-10-21T06:32:12.871Z",
+  "bundle": {
+    "name": "atlas-p14-final-20261021.bundle",
+    "bytes": 130116142,
+    "sha256": "79bc9a8d2280f6b1cb70ebf446593f25d8d0835eac1dce9ff111a9786314ac03"
+  },
+  "data": {
+    "path": "local-data-p14-final-20261021",
+    "files": [
+      {
+        "file": "nexus/explanations/module-explanations.json",
+        "bytes": 2465,
+        "sha256": "a95b0d10e517426a7373fbcbfc7c3e2c12f052143aed5c4fb75296ceb090e8e4"
+      },
+      {
+        "file": "nexus/flows/voice-request-to-overlay.flows.json",
+        "bytes": 7180,
+        "sha256": "e8d7a006c69007fca3d71793ce6d477bc0a0bf64dd2643f58c284cd8abef9f69"
+      },
+      {
+        "file": "nexus/nexus-2026-10-20-2584284.atlas.json",
+        "bytes": 4046024,
+        "sha256": "bb7774ac1413fd31150afecad3563ed38ac6766346fe2e30269dc97bc42f0f35"
+      }
+    ]
+  },
+  "bundleVerification": {
+    "status": "passed",
+    "output": "The bundle contains these 2 refs:\nddc74c1d5df5cc0d5e5937b7ca12a0c59e92c06b HEAD\nddc74c1d5df5cc0d5e5937b7ca12a0c59e92c06b refs/heads/main\nThe bundle records a complete history.\nThe bundle uses this hash algorithm: sha1\n\n~/Documents/DACHUAN-ATLAS-private-backups/p14-final-20261021/atlas-p14-final-20261021.bundle is okay",
+    "refs": [
+      "ddc74c1d5df5cc0d5e5937b7ca12a0c59e92c06b HEAD",
+      "ddc74c1d5df5cc0d5e5937b7ca12a0c59e92c06b refs/heads/main"
+    ],
+    "expectedCommit": "ddc74c1d5df5cc0d5e5937b7ca12a0c59e92c06b",
+    "expectedSha256": "79bc9a8d2280f6b1cb70ebf446593f25d8d0835eac1dce9ff111a9786314ac03",
+    "commitCheck": true,
+    "shaCheck": true
+  },
+  "exclusions": {
+    "totalFiles": 169,
+    "hasLocalData": false,
+    "hasDist": false,
+    "hasNodeModules": false,
+    "hasSnapshot": false,
+    "forbidden": [],
+    "status": "passed"
+  },
+  "restore": {
+    "status": "passed",
+    "dependencyInstall": {
+      "mode": "npm ci",
+      "status": "passed"
+    },
+    "tests": {
+      "status": "passed",
+      "summary": " ✓ tests/architecture/semantics.test.ts (6 tests) 124ms   Test Files  14 passed (14)       Tests  124 passed | 1 skipped (125)    Start at  12:02:16    Duration  405ms (transform 59%, tests 22%, import 17%, worker 1%)"
+    },
+    "build": {
+      "status": "passed",
+      "summary": "dist/assets/index-CmMEa_AK.css                       95.13 kB │ gzip:  18.65 kB dist/assets/index-DP-YvuH0.js                       467.78 kB │ gzip: 140.58 kB  ✓ built in 292ms"
+    },
+    "verifyBuild": {
+      "status": "passed",
+      "output": "> dachuan-atlas@0.6.0 verify:build\n> node tools/verify-build.mjs\n\n[ATLAS] 检查 7 个 dist 文件\n[ATLAS] 真实快照文件：0\n[ATLAS] 静态图标：存在\n[ATLAS] 安全门禁通过：默认构建不含真实快照、提交 SHA 或内部源码定位。"
+    },
+    "dataImport": {
+      "status": "passed",
+      "summary": "  ✓ tests/architecture/semantics.test.ts (6 tests) 125ms  ✓ tests/architecture/real-snapshot.test.ts (12 tests | 1 skipped) 141ms   Test Files  2 passed (2)       Tests  17 passed | 1 skipped (18)    Start at  12:02:17    Duration  276ms (tests 67%, import 27%, transform 5%, worker 1%)"
+    },
+    "restoredFiles": 172
+  },
+  "dataReimport": {
+    "status": "passed",
+    "badge": "本地快照 · 2584284",
+    "summary": "GRAPH PROJECTION真实关系投影真实连线已显示3 组模块对48 条关系2 AI 复核46 待核实独立人工审核AI 源码复核Graphify 直接提取Graphify 推断尚无审核?待核实叠加中枢连接 · 构图青=直接提取 · 紫=AI 复核 · 琥珀=推断 · 红点=待核实 · 橙=构图打开架构投影模块协作"
+  },
+  "limitations": [
+    "本报告只证明本机同一用户的隔离目录恢复；没有异机 / 离线介质恢复证据。",
+    "备份仍位于本机 ~/Documents/DACHUAN-ATLAS-private-backups；尚未完成异机备份。",
+    "Windows 实机恢复未执行；Windows 迁移步骤见 docs/P1.4-MAC-TO-WINDOWS.md。"
+  ]
+}

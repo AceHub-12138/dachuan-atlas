@@ -537,7 +537,7 @@ P1.2 施工前已建立 **仅本机、无远程仓库** 的私有版本控制；
 - **P1.4 最终 bundle**：`p14-final-20261021/atlas-p14-final-20261021.bundle`，与 P1.3 备份使用独立目录与文件名，不覆盖旧备份。
 - **快照副本**：`local-data-p14-final-20261021/` 保留原始 Schema 1.3.0 快照、模块协作场景与模块解释；导入时迁移到 Schema 1.4.0，源文件不改写。P1.1 / P1.2 / P1.3 副本继续保留。
 - **校验**：`SHA256-p14-final-20261021.txt` 记录 P1.4 bundle、快照、流程与解释文件的 SHA-256；`RESTORE-p14-final-20261021.md` 说明恢复步骤。
-- **恢复审计**：`node tools/audit-backup.mjs` 在本机隔离目录执行 bundle 克隆、`npm ci`、测试、构建、构建门禁与浏览器重新导入；P1.4 最终 bundle 审计结果见备份目录中的 `p1.4-final-bundle-audit.json`。
+- **恢复审计**：`node tools/audit-backup.mjs` 在本机隔离目录执行 bundle 克隆、`npm ci`、测试、构建、构建门禁与浏览器重新导入；P1.4 最终 bundle 审计结果见 [p1.4-final-bundle-audit.json](docs/architecture/p1.4-final-bundle-audit.json) 与 [P1.4-BACKUP-REPORT.md](docs/P1.4-BACKUP-REPORT.md)。
 - **当前限制**：**仅本机备份，尚未完成异机备份**；Windows 实机恢复未执行。完成 `docs/P1.4-MAC-TO-WINDOWS.md` 第 6 节才算异机恢复验证。
 - **建议的后续做法**：
   1. 继续使用本地 Git，按轮次提交；不要添加公开远程。
