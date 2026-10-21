@@ -399,8 +399,10 @@ async function main() {
     throw new Error(`依赖恢复失败：${sanitize(ci.stderr).slice(0, 1200)}`);
   }
 
-  const tests = await run(NPM, ['test'], { cwd: restored, timeout: 600000 });
+  // Build first so the security test also checks the produced dist, matching
+  // the normal local test count (dist 存在时多跑一项 dist 检查).
   const build = await run(NPM, ['run', 'build'], { cwd: restored, timeout: 600000 });
+  const tests = await run(NPM, ['test'], { cwd: restored, timeout: 600000 });
   const verifyBuild = await run(NPM, ['run', 'verify:build'], { cwd: restored, timeout: 300000 });
   const dataImportTest = await run(
     NPM,
