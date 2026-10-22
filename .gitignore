@@ -5,3 +5,6 @@ dist/
 .vite/
 .tools-build/
 local-data/
+.env
+.env.local
+.env.*.local
